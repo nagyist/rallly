@@ -4,7 +4,7 @@ on: pull_request
 jobs:
   linting:
     name: Linting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -24,14 +24,11 @@ jobs:
       - name: Check types
         run: yarn lint:tsc
 
-  # Label of the container job
   integration-tests:
     name: Run tests
-    # Containers must run in Linux based operating systems
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
-      # Downloads a copy of the code in your repository before running CI tests
       - name: Check out repository code
         uses: actions/checkout@v3
 
