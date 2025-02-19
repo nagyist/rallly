@@ -1,21 +1,16 @@
-import "react-i18next";
+import "i18next";
 
-import app from "../public/locales/en/app.json";
-import common from "../public/locales/en/common.json";
-import errors from "../public/locales/en/errors.json";
-import homepage from "../public/locales/en/homepage.json";
+import type emails from "@rallly/emails/locales/emails.json";
 
-interface I18nNamespaces {
-  homepage: typeof homepage;
-  app: typeof app;
-  common: typeof common;
-  errors: typeof errors;
-}
+import type app from "../public/locales/en/app.json";
 
 declare module "i18next" {
   interface CustomTypeOptions {
-    defaultNS: "common";
-    resources: I18nNamespaces;
+    defaultNS: "app";
     returnNull: false;
+    resources: {
+      app: typeof app;
+      emails: typeof emails;
+    };
   }
 }

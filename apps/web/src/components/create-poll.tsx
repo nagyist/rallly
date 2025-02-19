@@ -1,24 +1,28 @@
-import { trpc } from "@rallly/backend";
-import { useRouter } from "next/router";
-import { useTranslation } from "next-i18next";
-import React from "react";
-
-import { usePostHog } from "@/utils/posthog";
-
-import { Button } from "./button";
+"use client";
+import { usePostHog } from "@rallly/posthog/client";
+import { Button } from "@rallly/ui/button";
 import {
-  NewEventData,
-  PollDetailsData,
-  PollDetailsForm,
-  PollOptionsData,
-  PollOptionsForm,
-  UserDetailsData,
-  UserDetailsForm,
-} from "./forms";
-import Steps from "./steps";
-import { useUser } from "./user-provider";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@rallly/ui/card";
+import { Form } from "@rallly/ui/form";
+import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import React from "react";
+import { useForm } from "react-hook-form";
+import useFormPersist from "react-hook-form-persist";
+import { useUnmount } from "react-use";
 
-type StepName = "eventDetails" | "options" | "userDetails";
+import { PollSettingsForm } from "@/components/forms/poll-settings";
+import { Trans } from "@/components/trans";
+import { useUser } from "@/components/user-provider";
+import { trpc } from "@/trpc/client";
+
+import type { NewEventData } from "./forms";
+import { PollDetailsForm, PollOptionsForm } from "./forms";
 
 const required = <T,>(v: T | undefined): T => {
   if (!v) {
@@ -35,175 +39,115 @@ export interface CreatePollPageProps {
   view?: "week" | "month";
 }
 
-const Page: React.FunctionComponent = () => {
-  const { t } = useTranslation("app");
-
+export const CreatePoll: React.FunctionComponent = () => {
   const router = useRouter();
-
-  const session = useUser();
-
-  const steps: StepName[] = React.useMemo(
-    () =>
-      session.user.isGuest
-        ? ["eventDetails", "options", "userDetails"]
-        : ["eventDetails", "options"],
-    [session.user.isGuest],
-  );
-
-  const [formData, setFormData] = React.useState<NewEventData>({
-    currentStep: 0,
-  });
-
-  React.useEffect(() => {
-    const newStep = Math.min(steps.length - 1, formData.currentStep);
-    if (newStep !== formData.currentStep) {
-      setFormData((prevData) => ({
-        ...prevData,
-        currentStep: newStep,
-      }));
-    }
-  }, [formData.currentStep, steps.length]);
-
-  const currentStepIndex = formData?.currentStep ?? 0;
-
-  const currentStepName = steps[currentStepIndex];
-
-  const [isRedirecting, setIsRedirecting] = React.useState(false);
-
-  const posthog = usePostHog();
-
-  const createPoll = trpc.polls.create.useMutation({
-    onSuccess: (res) => {
-      setIsRedirecting(true);
-      posthog?.capture("created poll", {
-        pollId: res.id,
-        numberOfOptions: formData.options?.options?.length,
-        optionsView: formData?.options?.view,
-      });
-      router.replace(`/admin/${res.urlId}`);
+  const { user } = useUser();
+  const session = useSession();
+  const form = useForm<NewEventData>({
+    defaultValues: {
+      title: "",
+      description: "",
+      location: "",
+      view: "month",
+      options: [],
+      hideScores: false,
+      hideParticipants: false,
+      disableComments: false,
+      duration: 60,
     },
   });
 
-  const isBusy = isRedirecting || createPoll.isLoading;
+  const { clear } = useFormPersist("new-poll", {
+    watch: form.watch,
+    setValue: form.setValue,
+  });
 
-  const handleSubmit = async (
-    data: PollDetailsData | PollOptionsData | UserDetailsData,
-  ) => {
-    if (currentStepIndex < steps.length - 1) {
-      setFormData({
-        ...formData,
-        currentStep: currentStepIndex + 1,
-        [currentStepName]: data,
-      });
-    } else {
-      // last step
-      const title = required(formData?.eventDetails?.title);
+  useUnmount(clear);
 
-      await createPoll.mutateAsync({
-        title: title,
-        location: formData?.eventDetails?.location,
-        description: formData?.eventDetails?.description,
-        user: session.user.isGuest
-          ? {
-              name: required(formData?.userDetails?.name),
-              email: required(formData?.userDetails?.contact),
-            }
-          : undefined,
-        timeZone: formData?.options?.timeZone,
-        options: required(formData?.options?.options).map((option) => ({
-          startDate: option.type === "date" ? option.date : option.start,
-          endDate: option.type === "timeSlot" ? option.end : undefined,
-        })),
-      });
-    }
-  };
-
-  const handleChange = (
-    data: Partial<PollDetailsData | PollOptionsData | UserDetailsData>,
-  ) => {
-    setFormData({
-      ...formData,
-      currentStep: currentStepIndex,
-      [currentStepName]: data,
-    });
-  };
+  const posthog = usePostHog();
+  const createPoll = trpc.polls.create.useMutation({
+    networkMode: "always",
+    onMutate: async () => {
+      if (session.status !== "authenticated") {
+        await signIn("guest", {
+          redirect: false,
+        });
+      }
+    },
+  });
 
   return (
-    <div className="max-w-full p-3 sm:p-4">
-      <div className="max-w-full">
-        <div className="max-w-full overflow-hidden rounded-lg border bg-white shadow-sm">
-          <div className="flex justify-between border-b p-4">
-            <h1 className="m-0 text-xl font-semibold text-slate-800">
-              {t("createNew")}
-            </h1>
-            <Steps current={currentStepIndex} total={steps.length} />
-          </div>
-          <div className="">
-            {(() => {
-              switch (currentStepName) {
-                case "eventDetails":
-                  return (
-                    <PollDetailsForm
-                      className="max-w-full p-3 sm:p-4"
-                      name={currentStepName}
-                      defaultValues={formData?.eventDetails}
-                      onSubmit={handleSubmit}
-                      onChange={handleChange}
-                    />
-                  );
-                case "options":
-                  return (
-                    <PollOptionsForm
-                      className="grow"
-                      name={currentStepName}
-                      defaultValues={formData?.options}
-                      onSubmit={handleSubmit}
-                      onChange={handleChange}
-                      title={formData.eventDetails?.title}
-                    />
-                  );
-                case "userDetails":
-                  return (
-                    <UserDetailsForm
-                      className="grow p-4"
-                      name={currentStepName}
-                      defaultValues={formData?.userDetails}
-                      onSubmit={handleSubmit}
-                      onChange={handleChange}
-                    />
-                  );
-              }
-            })()}
-            <div className="flex w-full justify-end space-x-3 border-t bg-gray-50 p-3">
-              {currentStepIndex > 0 ? (
-                <Button
-                  disabled={isBusy}
-                  onClick={() => {
-                    setFormData({
-                      ...formData,
-                      currentStep: currentStepIndex - 1,
-                    });
-                  }}
-                >
-                  {t("back")}
-                </Button>
-              ) : null}
-              <Button
-                form={currentStepName}
-                loading={isBusy}
-                htmlType="submit"
-                type="primary"
-              >
-                {currentStepIndex < steps.length - 1
-                  ? t("continue")
-                  : t("createPoll")}
-              </Button>
-            </div>
-          </div>
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(async (formData) => {
+          const title = required(formData?.title);
+          await createPoll.mutateAsync(
+            {
+              title: title,
+              location: formData?.location,
+              description: formData?.description,
+              timeZone: formData?.timeZone,
+              hideParticipants: formData?.hideParticipants,
+              disableComments: formData?.disableComments,
+              hideScores: formData?.hideScores,
+              requireParticipantEmail: formData?.requireParticipantEmail,
+              options: required(formData?.options).map((option) => ({
+                startDate: option.type === "date" ? option.date : option.start,
+                endDate: option.type === "timeSlot" ? option.end : undefined,
+              })),
+            },
+            {
+              onSuccess: (res) => {
+                posthog?.capture("created poll", {
+                  pollId: res.id,
+                  numberOfOptions: formData.options?.length,
+                  optionsView: formData?.view,
+                  tier: user.tier,
+                  $set: {
+                    last_poll_created_at: new Date().toISOString(),
+                  },
+                });
+                router.push(`/poll/${res.id}`);
+              },
+            },
+          );
+        })}
+      >
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <Trans i18nKey="event" defaults="Event" />
+              </CardTitle>
+              <CardDescription>
+                <Trans
+                  i18nKey="describeYourEvent"
+                  defaults="Describe what your event is about"
+                />
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <PollDetailsForm />
+            </CardContent>
+          </Card>
+
+          <PollOptionsForm />
+
+          <PollSettingsForm />
+          <hr />
+          <Button
+            loading={
+              form.formState.isSubmitting || form.formState.isSubmitSuccessful
+            }
+            size="lg"
+            type="submit"
+            className="w-full"
+            variant="primary"
+          >
+            <Trans i18nKey="createPoll" defaults="Create poll" />
+          </Button>
         </div>
-      </div>
-    </div>
+      </form>
+    </Form>
   );
 };
-
-export default Page;

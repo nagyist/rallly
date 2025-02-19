@@ -1,64 +1,91 @@
-import { YesIcon } from "@rallly/icons";
-import clsx from "clsx";
+import { cn } from "@rallly/ui";
 import { AnimatePresence, m } from "framer-motion";
+import { User2Icon } from "lucide-react";
 import * as React from "react";
 import { usePrevious } from "react-use";
 
 import { usePoll } from "@/components/poll-context";
+import { IfScoresVisible } from "@/components/visibility";
 
 export interface PopularityScoreProps {
   yesScore: number;
   ifNeedBeScore?: number;
   highlight?: boolean;
+  highScore: number;
 }
 
 export const ConnectedScoreSummary: React.FunctionComponent<{
   optionId: string;
 }> = ({ optionId }) => {
   const { getScore, highScore } = usePoll();
-  const score = getScore(optionId);
-
+  const { yes, ifNeedBe } = getScore(optionId);
+  const score = yes + ifNeedBe;
+  const highlight = score === highScore && score > 1;
   return (
-    <ScoreSummary yesScore={score.yes} highlight={score.yes === highScore} />
+    <IfScoresVisible>
+      <ScoreSummary
+        yesScore={yes}
+        ifNeedBeScore={ifNeedBe}
+        highScore={highScore}
+        highlight={highlight}
+      />
+    </IfScoresVisible>
   );
 };
 
-export const ScoreSummary: React.FunctionComponent<PopularityScoreProps> =
-  React.memo(function PopularityScore({ yesScore: score, highlight }) {
-    const prevScore = usePrevious(score);
+function AnimatedNumber({ score }: { score: number }) {
+  const prevScore = usePrevious(score);
+  const direction = prevScore !== undefined ? score - prevScore : 0;
 
-    const direction = prevScore !== undefined ? score - prevScore : 0;
+  return (
+    <AnimatePresence initial={false} mode="wait">
+      <m.span
+        initial={{
+          y: 10 * direction,
+        }}
+        transition={{
+          duration: 0.1,
+        }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{
+          y: 10 * direction,
+        }}
+        key={score}
+        className="relative"
+      >
+        {score}
+      </m.span>
+    </AnimatePresence>
+  );
+}
+
+const ScoreSummary: React.FunctionComponent<PopularityScoreProps> = React.memo(
+  function PopularityScore({
+    yesScore = 0,
+    ifNeedBeScore = 0,
+    highlight,
+    highScore,
+  }) {
+    const score = yesScore + ifNeedBeScore;
 
     return (
-      <div
-        data-testid="popularity-score"
-        className={clsx(
-          "flex select-none items-center gap-1 px-2 text-sm font-bold tabular-nums",
-          {
-            "rounded-full bg-green-50 text-green-400": highlight,
-          },
-          { "text-slate-400": !highlight },
+      <span
+        className={cn(
+          "relative inline-flex items-center gap-x-1 text-xs",
+          highlight ? "font-medium text-gray-800" : "font-normal text-gray-500",
         )}
+        style={{
+          opacity: Math.max(score / highScore, 0.2),
+        }}
       >
-        <YesIcon className="-ml-1 inline-block h-4 transition-opacity" />
-        <AnimatePresence initial={false} exitBeforeEnter={true}>
-          <m.span
-            transition={{
-              duration: 0.1,
-            }}
-            initial={{
-              y: 10 * direction,
-            }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{
-              y: 10 * direction,
-            }}
-            key={score}
-            className="relative"
-          >
-            {score}
-          </m.span>
-        </AnimatePresence>
-      </div>
+        <User2Icon className="size-4 opacity-75" />
+        <AnimatedNumber score={score} />
+        {highlight ? (
+          ifNeedBeScore > 0 ? (
+            <span className="inline-block size-1.5 rounded-full bg-amber-400" />
+          ) : null
+        ) : null}
+      </span>
     );
-  });
+  },
+);

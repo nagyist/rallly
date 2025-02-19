@@ -1,10 +1,13 @@
-import { SpinnerIcon } from "@rallly/icons";
 import clsx from "clsx";
+import { Loader2Icon } from "lucide-react";
 
 export const Spinner = (props: { className?: string }) => {
   return (
-    <SpinnerIcon
-      className={clsx("inline-block h-5 animate-spin", props.className)}
+    <Loader2Icon
+      className={clsx(
+        "text-muted-foreground inline-block h-5 animate-spin",
+        props.className,
+      )}
     />
   );
 };

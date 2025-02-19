@@ -1,16 +1,15 @@
-import { PollDetailsData } from "./poll-details-form";
-import { PollOptionsData } from "./poll-options-form/poll-options-form";
-import { UserDetailsData } from "./user-details-form";
+import type { PollSettingsFormData } from "@/components/forms/poll-settings";
 
-export interface NewEventData {
-  currentStep: number;
-  eventDetails?: Partial<PollDetailsData>;
-  options?: Partial<PollOptionsData>;
-  userDetails?: Partial<UserDetailsData>;
-}
+import type { PollDetailsData } from "./poll-details-form";
+import type { PollOptionsData } from "./poll-options-form/poll-options-form";
+
+export type NewEventData = PollDetailsData &
+  PollOptionsData &
+  PollSettingsFormData;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface PollFormProps<T extends Record<string, any>> {
-  onSubmit: (data: T) => void;
+  onSubmit?: (data: T) => void;
   onChange?: (data: Partial<T>) => void;
   defaultValues?: Partial<T>;
   name?: string;

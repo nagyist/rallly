@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { groupBy } from "lodash";
 import * as React from "react";
 
-import { ParsedDateTimeOpton } from "@/utils/date-time-utils";
+import type { ParsedDateTimeOpton } from "@/utils/date-time-utils";
 
 import PollOptions from "./poll-options";
 
@@ -22,7 +22,6 @@ const GroupedOptions: React.FunctionComponent<GroupedOptionsProps> = ({
   groupClassName,
 }) => {
   const grouped = groupBy(options, group);
-
   return (
     <div className="select-none divide-y">
       {Object.entries(grouped).map(([day, options]) => {
@@ -30,7 +29,7 @@ const GroupedOptions: React.FunctionComponent<GroupedOptionsProps> = ({
           <div key={day}>
             <div
               className={clsx(
-                "flex border-b bg-gray-50/80 py-2 px-4 text-sm font-semibold shadow-sm backdrop-blur-md",
+                "flex border-b bg-gray-50 px-4 py-2 text-xs font-medium uppercase",
                 groupClassName,
               )}
             >

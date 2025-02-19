@@ -1,87 +1,182 @@
-import { trpc } from "@rallly/backend";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { usePostHog } from "@rallly/posthog/client";
+import { Button } from "@rallly/ui/button";
 import {
-  DotsHorizontalIcon,
-  PencilIcon,
-  TagIcon,
-  TrashIcon,
-} from "@rallly/icons";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@rallly/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuItemIconLabel,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@rallly/ui/dropdown-menu";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@rallly/ui/form";
+import { Input } from "@rallly/ui/input";
+import { PencilIcon, TagIcon, TrashIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import React from "react";
-import { SubmitHandler, useForm } from "react-hook-form";
+import type { SubmitHandler } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMount } from "react-use";
+import { z } from "zod";
 
-import { Button } from "@/components/button";
-import Dropdown, { DropdownItem } from "@/components/dropdown";
-import Modal from "@/components/modal/modal";
-import { useModalState } from "@/components/modal/use-modal";
-import { useDeleteParticipantModal } from "@/components/poll/use-delete-participant-modal";
-import { TextInput } from "@/components/text-input";
+import { OptimizedAvatarImage } from "@/components/optimized-avatar-image";
+import { useDeleteParticipantMutation } from "@/components/poll/mutations";
+import { Trans } from "@/components/trans";
+import { trpc } from "@/trpc/client";
 import { useFormValidation } from "@/utils/form-validation";
-import { usePostHog } from "@/utils/posthog";
-
-import { Participant } from ".prisma/client";
 
 export const ParticipantDropdown = ({
   participant,
   onEdit,
+  children,
   disabled,
+  align,
 }: {
   disabled?: boolean;
-  participant: Participant;
+  participant: {
+    name: string;
+    userId?: string;
+    email?: string;
+    id: string;
+  };
+  align?: "start" | "end";
   onEdit: () => void;
+  children: React.ReactNode;
 }) => {
-  const { t } = useTranslation("app");
-  const confirmDeleteParticipant = useDeleteParticipantModal();
-
-  const [isChangeNameModalVisible, showChangeNameModal, hideChangeNameModal] =
-    useModalState();
+  const [isChangeNameModalVisible, setIsChangeNameModalVisible] =
+    React.useState(false);
+  const [isDeleteParticipantModalVisible, setIsDeleteParticipantModalVisible] =
+    React.useState(false);
 
   return (
     <>
-      <Dropdown
-        placement="bottom-start"
-        trigger={
-          <Button data-testid="participant-menu">
-            <DotsHorizontalIcon className="h-4 text-slate-500" />
-          </Button>
-        }
-      >
-        <DropdownItem
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger
           disabled={disabled}
-          icon={PencilIcon}
-          onClick={onEdit}
-          label={t("editVotes")}
-        />
-        <DropdownItem
-          disabled={disabled}
-          icon={TagIcon}
-          onClick={showChangeNameModal}
-          label={t("changeName")}
-        />
-        <DropdownItem
-          disabled={disabled}
-          icon={TrashIcon}
-          onClick={() =>
-            confirmDeleteParticipant(participant.id, participant.name)
-          }
-          label={t("delete")}
-        />
-      </Dropdown>
-      <Modal
-        showClose={true}
-        overlayClosable={true}
-        visible={isChangeNameModalVisible}
-        onCancel={hideChangeNameModal}
-        footer={null}
-        content={
-          <ChangeNameModal
-            oldName={participant.name}
-            onDone={hideChangeNameModal}
-            participantId={participant.id}
-          />
-        }
+          asChild={true}
+          data-testid="participant-menu"
+        >
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align={align}>
+          <DropdownMenuLabel>
+            <div className="flex items-center gap-x-2">
+              <div>
+                <OptimizedAvatarImage name={participant.name} size="md" />
+              </div>
+              <div className="grid gap-0.5">
+                <div>{participant.name}</div>
+                {participant.email ? (
+                  <div className="text-muted-foreground text-xs font-normal">
+                    {participant.email}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onEdit}>
+            <DropdownMenuItemIconLabel icon={PencilIcon}>
+              <Trans i18nKey="editVotes" />
+            </DropdownMenuItemIconLabel>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsChangeNameModalVisible(true)}>
+            <DropdownMenuItemIconLabel icon={TagIcon}>
+              <Trans i18nKey="changeName" />
+            </DropdownMenuItemIconLabel>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => setIsDeleteParticipantModalVisible(true)}
+          >
+            <TrashIcon className="size-4" />
+            <Trans i18nKey="delete" />
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ChangeNameModal
+        open={isChangeNameModalVisible}
+        onOpenChange={setIsChangeNameModalVisible}
+        oldName={participant.name}
+        participantId={participant.id}
+      />
+      <DeleteParticipantModal
+        open={isDeleteParticipantModalVisible}
+        onOpenChange={setIsDeleteParticipantModalVisible}
+        participantId={participant.id}
+        participantName={participant.name}
       />
     </>
+  );
+};
+
+const DeleteParticipantModal = ({
+  open,
+  onOpenChange,
+  participantId,
+  participantName,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  participantId: string;
+  participantName: string;
+}) => {
+  const deleteParticipant = useDeleteParticipantMutation();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            <Trans
+              i18nKey="deleteParticipant"
+              values={{ name: participantName }}
+            />
+          </DialogTitle>
+          <DialogDescription>
+            <Trans i18nKey="deleteParticipantDescription" />
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+            }}
+          >
+            <Trans i18nKey="cancel" />
+          </Button>
+          <Button
+            loading={deleteParticipant.isLoading}
+            variant="destructive"
+            onClick={async () => {
+              deleteParticipant.mutate({
+                participantId,
+              });
+              onOpenChange(false);
+            }}
+          >
+            <Trans i18nKey="delete" />
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -89,16 +184,19 @@ type ChangeNameForm = {
   name: string;
 };
 
+const changeNameSchema = z.object({
+  name: z.string().trim().min(1),
+});
+
 const ChangeNameModal = (props: {
   oldName: string;
   participantId: string;
-  onDone: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) => {
   const posthog = usePostHog();
-  const queryClient = trpc.useContext();
   const changeName = trpc.polls.participants.rename.useMutation({
     onSuccess: (_, { participantId, newName }) => {
-      queryClient.polls.participants.invalidate();
       posthog?.capture("changed name", {
         participantId,
         oldName: props.oldName,
@@ -106,14 +204,14 @@ const ChangeNameModal = (props: {
       });
     },
   });
-  const { register, handleSubmit, setFocus, formState } =
-    useForm<ChangeNameForm>({
-      defaultValues: {
-        name: props.oldName,
-      },
-    });
+  const form = useForm<ChangeNameForm>({
+    defaultValues: {
+      name: props.oldName,
+    },
+    resolver: zodResolver(changeNameSchema),
+  });
 
-  const { errors } = formState;
+  const { control, reset, handleSubmit, setFocus, formState } = form;
 
   useMount(() => {
     setFocus("name", {
@@ -130,49 +228,66 @@ const ChangeNameModal = (props: {
           newName: name,
         });
       }
-      props.onDone();
+      props.onOpenChange(false);
     },
     [changeName, formState.isDirty, props],
   );
 
   const { requiredString } = useFormValidation();
-
-  const { t } = useTranslation("app");
+  const formName = `change-name-${props.participantId}`;
+  const { t } = useTranslation();
   return (
-    <form onSubmit={handleSubmit(handler)} className="max-w-sm space-y-3 p-4">
-      <div>
-        <div className="text-lg font-semibold text-slate-800">
-          {t("changeName")}
-        </div>
-        <div>{t("changeNameDescription")}</div>
-      </div>
-      <fieldset>
-        <label className="mb-1 text-slate-500">{t("name")}</label>
-        <TextInput
-          className="w-full"
-          error={!!errors.name}
-          disabled={formState.isSubmitting}
-          {...register("name", {
-            validate: requiredString(t("name")),
-          })}
-        />
-        {errors.name ? (
-          <div className="text-sm text-rose-500">{errors.name.message}</div>
-        ) : null}
-        <div className="mt-2 text-sm text-slate-500">{t("changeNameInfo")}</div>
-      </fieldset>
-      <div className="flex gap-2 ">
-        <Button disabled={formState.isSubmitting} onClick={props.onDone}>
-          {t("cancel")}
-        </Button>
-        <Button
-          loading={formState.isSubmitting}
-          htmlType="submit"
-          type="primary"
-        >
-          {t("save")}
-        </Button>
-      </div>
-    </form>
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("changeName")}</DialogTitle>
+          <DialogDescription>{t("changeNameDescription")}</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form id={formName} onSubmit={handleSubmit(handler)}>
+            <FormField
+              control={control}
+              name="name"
+              rules={{
+                validate: requiredString(t("name")),
+              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("name")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="w-full"
+                      {...field}
+                      disabled={formState.isSubmitting}
+                    />
+                  </FormControl>
+                  <FormDescription>{t("changeNameInfo")}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+        <DialogFooter>
+          <Button
+            disabled={formState.isSubmitting}
+            onClick={() => {
+              reset();
+              props.onOpenChange(false);
+            }}
+          >
+            {t("cancel")}
+          </Button>
+          <Button
+            form={formName}
+            loading={formState.isSubmitting}
+            type="submit"
+            variant="primary"
+          >
+            {t("save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

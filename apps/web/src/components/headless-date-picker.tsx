@@ -1,6 +1,5 @@
+import dayjs from "dayjs";
 import React from "react";
-
-import { useDayjs } from "../utils/dayjs";
 
 interface DayProps {
   date: Date;
@@ -8,6 +7,7 @@ interface DayProps {
   weekend: boolean;
   outOfMonth: boolean;
   today: boolean;
+  isPast: boolean;
   selected: boolean;
 }
 
@@ -16,7 +16,6 @@ interface HeadlessDatePickerOptions {
   date?: Date;
   selection?: Date[];
   onNavigationChange?: (date: Date) => void;
-  weekStartsOn?: "monday" | "sunday";
 }
 
 const today = new Date();
@@ -34,7 +33,6 @@ export const useHeadlessDatePicker = (
   selection: Date[];
   toggle: (date: Date) => void;
 } => {
-  const { dayjs } = useDayjs();
   const [localSelection, setSelection] = React.useState<Date[]>([]);
   const selection = options?.selection ?? localSelection;
   const [localNavigationDate, setNavigationDate] = React.useState(today);
@@ -64,6 +62,7 @@ export const useHeadlessDatePicker = (
       outOfMonth: d.month() !== currentMonth,
       today: d.isSame(today, "day"),
       selected: selection.some((selectedDate) => d.isSame(selectedDate, "day")),
+      isPast: d.isBefore(today, "day"),
     });
     i++;
     reachedEnd =

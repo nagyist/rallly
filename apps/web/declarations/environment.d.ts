@@ -10,10 +10,6 @@ declare global {
        */
       NODE_ENV: "development" | "production";
       /**
-       * Set to "true" to take users straight to app instead of landing page
-       */
-      DISABLE_LANDING_PAGE?: string;
-      /**
        * Must be 32 characters long
        */
       SECRET_PASSWORD: string;
@@ -33,10 +29,6 @@ declare global {
        * Crisp website ID
        */
       NEXT_PUBLIC_CRISP_WEBSITE_ID?: string;
-      /**
-       * When defined users will be able to send feedback to this email address
-       */
-      NEXT_PUBLIC_FEEDBACK_EMAIL?: string;
       /**
        * Users of your instance will see this as their support email
        */
@@ -69,13 +61,25 @@ declare global {
        */
       ALLOWED_EMAILS?: string;
       /**
-       * "true" to require authentication for creating new polls and accessing admin pages
-       */
-      AUTH_REQUIRED?: string;
-      /**
        * Determines what email provider to use. "smtp" or "ses"
        */
       EMAIL_PROVIDER?: "smtp" | "ses";
+      /**
+       * Name of the oidc provider
+       */
+      OIDC_NAME?: string;
+      /**
+       * URL of the oidc provider .well-known/openid-configuration endpoint
+       */
+      OIDC_DISCOVERY_URL?: string;
+      /**
+       * Client ID of the oidc provider
+       */
+      OIDC_CLIENT_ID?: string;
+      /**
+       * Client secret of the oidc provider
+       */
+      OIDC_CLIENT_SECRET?: string;
       /**
        * AWS access key ID
        */

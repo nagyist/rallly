@@ -1,17 +1,19 @@
-import { PrismaClient } from "@rallly/database";
+import { PrismaClient } from "@prisma/client";
 
-import { softDeleteMiddleware } from "./middleware/soft-delete-middleware";
+export type * from "@prisma/client";
 
-export * from "@prisma/client";
+const prismaClientSingleton = () => {
+  return new PrismaClient();
+};
 
-declare global {
-  // allow global `var` declarations
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
-}
+export type ExtendedPrismaClient = ReturnType<typeof prismaClientSingleton>;
 
-export const prisma = global.prisma || new PrismaClient();
+declare const globalThis: {
+  prismaGlobal: ExtendedPrismaClient;
+} & typeof global;
 
-softDeleteMiddleware(prisma, "Poll");
+const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
-if (process.env.NODE_ENV !== "production") global.prisma = prisma;
+export { prisma };
+
+if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;

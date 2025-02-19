@@ -1,31 +1,42 @@
+import { cn } from "@rallly/ui";
+import { Button } from "@rallly/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@rallly/ui/dropdown-menu";
+import { Icon } from "@rallly/ui/icon";
+import { Switch } from "@rallly/ui/switch";
+import clsx from "clsx";
+import dayjs from "dayjs";
 import {
   CalendarIcon,
+  CalendarXIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  DotsHorizontalIcon,
-  PlusSmIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
   SparklesIcon,
-  TrashIcon,
   XIcon,
-} from "@rallly/icons";
-import clsx from "clsx";
+} from "lucide-react";
 import { useTranslation } from "next-i18next";
 import * as React from "react";
+import { useFormContext } from "react-hook-form";
+
+import type { NewEventData } from "@/components/forms";
+import { Trans } from "@/components/trans";
 
 import {
   expectTimeOption,
+  getBrowserTimeZone,
   getDateProps,
   removeAllOptionsForDay,
 } from "../../../../utils/date-time-utils";
-import { useDayjs } from "../../../../utils/dayjs";
-import { Button } from "../../../button";
-import CompactButton from "../../../compact-button";
 import DateCard from "../../../date-card";
-import Dropdown, { DropdownItem } from "../../../dropdown";
 import { useHeadlessDatePicker } from "../../../headless-date-picker";
-import Switch from "../../../switch";
-import { DateTimeOption } from "..";
-import { DateTimePickerProps } from "../types";
+import type { DateTimeOption } from "..";
+import type { DateTimePickerProps } from "../types";
 import { formatDateWithoutTime, formatDateWithoutTz } from "../utils";
 import TimePicker from "./time-picker";
 
@@ -37,9 +48,10 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
   duration,
   onChangeDuration,
 }) => {
-  const { dayjs, weekStartsOn } = useDayjs();
-  const { t } = useTranslation("app");
+  const { t } = useTranslation();
   const isTimedEvent = options.some((option) => option.type === "timeSlot");
+
+  const form = useFormContext<NewEventData>();
 
   const optionsByDay = React.useMemo(() => {
     const res: Record<
@@ -77,48 +89,47 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
   const datepicker = useHeadlessDatePicker({
     selection: datepickerSelection,
     onNavigationChange: onNavigate,
-    weekStartsOn,
     date,
   });
 
   return (
-    <div className="overflow-hidden lg:flex">
-      <div className="border-b p-3 sm:p-4 lg:w-[440px] lg:border-r lg:border-b-0">
+    <div className="overflow-hidden md:flex">
+      <div className="shrink-0 border-b p-3 sm:p-4 md:w-[380px] md:border-b-0 md:border-r">
         <div>
           <div className="flex w-full flex-col">
             <div className="mb-3 flex items-center justify-center space-x-4">
-              <Button
-                icon={<ChevronLeftIcon />}
-                title={t("previousMonth")}
-                onClick={datepicker.prev}
-              />
-              <div className="grow text-center text-lg font-medium">
+              <Button title={t("previousMonth")} onClick={datepicker.prev}>
+                <Icon>
+                  <ChevronLeftIcon />
+                </Icon>
+              </Button>
+              <div className="grow text-center font-semibold tracking-tight">
                 {datepicker.label}
               </div>
-              <Button
-                title={t("nextMonth")}
-                icon={<ChevronRightIcon />}
-                onClick={datepicker.next}
-              />
+              <Button title={t("nextMonth")} onClick={datepicker.next}>
+                <Icon>
+                  <ChevronRightIcon />
+                </Icon>
+              </Button>
             </div>
             <div className="grid grid-cols-7">
               {datepicker.daysOfWeek.map((dayOfWeek) => {
                 return (
                   <div
                     key={dayOfWeek}
-                    className="flex items-center justify-center pb-2 text-sm font-medium text-slate-500"
+                    className="flex items-center justify-center pb-2 text-sm font-medium text-gray-500"
                   >
                     {dayOfWeek.substring(0, 2)}
                   </div>
                 );
               })}
             </div>
-            <div className="grid grow grid-cols-7 rounded-lg border bg-white shadow-sm">
+            <div className="grid grow grid-cols-7 rounded-md border bg-white shadow-sm">
               {datepicker.days.map((day, i) => {
                 return (
                   <div
                     key={i}
-                    className={clsx("h-12", {
+                    className={clsx("h-11", {
                       "border-r": (i + 1) % 7 !== 0,
                       "border-b": i < datepicker.days.length - 7,
                     })}
@@ -144,6 +155,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                             : {
                                 type: "timeSlot",
                                 start: formatDateWithoutTz(selectedDate),
+                                duration,
                                 end: formatDateWithoutTz(
                                   dayjs(selectedDate)
                                     .add(duration, "minutes")
@@ -163,16 +175,25 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                         }
                       }}
                       className={clsx(
-                        "relative flex h-full w-full items-center justify-center text-sm hover:bg-slate-50 focus:z-10 focus:rounded active:bg-slate-100",
+                        "group relative flex h-full w-full items-start justify-end rounded-none px-2.5 py-1.5 text-sm font-medium tracking-tight focus:z-10 focus:rounded",
                         {
-                          "bg-slate-50 text-slate-500": day.outOfMonth,
-                          "font-bold": day.today,
-                          "text-primary-600": day.today && !day.selected,
-                          "font-normal text-white after:absolute after:-z-0 after:h-8 after:w-8 after:rounded-full after:bg-green-500 after:content-['']":
-                            day.selected,
+                          "bg-gray-100 text-gray-400": day.isPast,
+                          "text-rose-600": day.today && !day.selected,
+                          "bg-gray-50 text-gray-500":
+                            day.outOfMonth && !day.isPast,
+                          "text-primary-600": day.selected,
                         },
                       )}
                     >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute inset-1 -z-0 rounded-md border",
+                          day.selected
+                            ? "border-primary-300 group-hover:border-primary-400 border-dashed shadow-sm"
+                            : "border-dashed border-transparent group-hover:border-gray-400 group-active:bg-gray-200",
+                        )}
+                      ></span>
                       <span className="z-10">{day.day}</span>
                     </button>
                   </div>
@@ -194,7 +215,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
           <div className="flex items-center space-x-3 p-3 sm:p-4">
             <div className="grow">
               <div className="font-medium">{t("specifyTimes")}</div>
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-gray-500">
                 {t("specifyTimesDescription")}
               </div>
             </div>
@@ -202,11 +223,12 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
               <Switch
                 data-testid="specify-times-switch"
                 checked={isTimedEvent}
-                onChange={(checked) => {
+                onCheckedChange={(checked) => {
                   if (checked) {
+                    form.setValue("timeZone", getBrowserTimeZone());
                     // convert dates to time slots
                     onChange(
-                      options.map((option) => {
+                      options.map<DateTimeOption>((option) => {
                         if (option.type === "timeSlot") {
                           throw new Error(
                             "Expected option to be a date but received timeSlot",
@@ -219,11 +241,13 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                         return {
                           type: "timeSlot",
                           start: formatDateWithoutTz(startDate),
+                          duration: duration,
                           end: formatDateWithoutTz(endDate),
                         };
                       }),
                     );
                   } else {
+                    form.setValue("timeZone", "");
                     onChange(
                       datepicker.selection.map((date) => ({
                         type: "date",
@@ -236,7 +260,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
             </div>
           </div>
         </div>
-        <div className="grow">
+        <div className="min-h-0 grow overflow-auto">
           {isTimedEvent ? (
             <div className="divide-y">
               {Object.keys(optionsByDay)
@@ -246,13 +270,11 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                   return (
                     <div
                       key={dateString}
-                      className="space-y-3 p-3 sm:flex sm:space-y-0 sm:space-x-4 sm:p-4"
+                      className="space-y-3 p-3 sm:flex sm:items-start sm:space-x-4 sm:space-y-0 sm:p-4"
                     >
-                      <div>
-                        <DateCard
-                          {...getDateProps(new Date(dateString + "T12:00:00"))}
-                        />
-                      </div>
+                      <DateCard
+                        {...getDateProps(new Date(dateString + "T12:00:00"))}
+                      />
                       <div className="grow space-y-3">
                         {optionsForDay.map(({ option, index }) => {
                           if (option.type === "date") {
@@ -306,21 +328,25 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                                   );
                                 }}
                               />
-                              <CompactButton
-                                icon={XIcon}
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 onClick={() => {
                                   onChange([
                                     ...options.slice(0, index),
                                     ...options.slice(index + 1),
                                   ]);
                                 }}
-                              />
+                              >
+                                <Icon>
+                                  <XIcon />
+                                </Icon>
+                              </Button>
                             </div>
                           );
                         })}
                         <div className="flex items-center space-x-3">
                           <Button
-                            icon={<PlusSmIcon />}
                             onClick={() => {
                               const lastOption = expectTimeOption(
                                 optionsForDay[optionsForDay.length - 1].option,
@@ -340,6 +366,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                                 {
                                   type: "timeSlot",
                                   start: startTime,
+                                  duration,
                                   end: formatDateWithoutTz(
                                     dayjs(new Date(startTime))
                                       .add(duration, "minutes")
@@ -349,65 +376,83 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                               ]);
                             }}
                           >
+                            <Icon>
+                              <PlusIcon />
+                            </Icon>
                             {t("addTimeOption")}
                           </Button>
-                          <Dropdown
-                            trigger={
-                              <CompactButton icon={DotsHorizontalIcon} />
-                            }
-                            placement="bottom-start"
-                          >
-                            <DropdownItem
-                              icon={SparklesIcon}
-                              disabled={datepicker.selection.length < 2}
-                              label={t("applyToAllDates")}
-                              onClick={() => {
-                                const times = optionsForDay.map(
-                                  ({ option }) => {
-                                    if (option.type === "date") {
-                                      throw new Error(
-                                        "Expected timeSlot but got date",
-                                      );
-                                    }
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild={true}>
+                              <Button variant="ghost" size="sm">
+                                <Icon>
+                                  <MoreHorizontalIcon />
+                                </Icon>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  const times = optionsForDay.map(
+                                    ({ option }) => {
+                                      if (option.type === "date") {
+                                        throw new Error(
+                                          "Expected timeSlot but got date",
+                                        );
+                                      }
 
-                                    return {
-                                      startTime: option.start.substring(
-                                        option.start.indexOf("T"),
-                                      ),
-                                      endTime: option.end.substring(
-                                        option.end.indexOf("T"),
-                                      ),
-                                    };
-                                  },
-                                );
-                                const newOptions: DateTimeOption[] = [];
-                                Object.keys(optionsByDay).forEach(
-                                  (dateString) => {
-                                    times.forEach((time) => {
-                                      newOptions.push({
-                                        type: "timeSlot",
-                                        start: dateString + time.startTime,
-                                        end: dateString + time.endTime,
+                                      return {
+                                        startTime: option.start.substring(
+                                          option.start.indexOf("T"),
+                                        ),
+                                        duration: option.duration,
+                                        endTime: option.end.substring(
+                                          option.end.indexOf("T"),
+                                        ),
+                                      };
+                                    },
+                                  );
+                                  const newOptions: DateTimeOption[] = [];
+                                  Object.keys(optionsByDay).forEach(
+                                    (dateString) => {
+                                      times.forEach((time) => {
+                                        const start =
+                                          dateString + time.startTime;
+                                        newOptions.push({
+                                          type: "timeSlot",
+                                          start: start,
+                                          duration,
+                                          end: dayjs(start)
+                                            .add(duration, "minutes")
+                                            .format("YYYY-MM-DDTHH:mm"),
+                                        });
                                       });
-                                    });
-                                  },
-                                );
-                                onChange(newOptions);
-                              }}
-                            />
-                            <DropdownItem
-                              label={t("deleteDate")}
-                              icon={TrashIcon}
-                              onClick={() => {
-                                onChange(
-                                  removeAllOptionsForDay(
-                                    options,
-                                    new Date(dateString),
-                                  ),
-                                );
-                              }}
-                            />
-                          </Dropdown>
+                                    },
+                                  );
+                                  onChange(newOptions);
+                                }}
+                              >
+                                <Icon>
+                                  <SparklesIcon />
+                                </Icon>
+                                <Trans i18nKey="applyToAllDates" />
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  onChange(
+                                    removeAllOptionsForDay(
+                                      options,
+                                      new Date(dateString),
+                                    ),
+                                  );
+                                }}
+                              >
+                                <Icon>
+                                  <CalendarXIcon />
+                                </Icon>
+                                <Trans i18nKey="deleteDate" />
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
@@ -415,7 +460,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                 })}
             </div>
           ) : datepicker.selection.length ? (
-            <div className="grid grid-cols-[repeat(auto-fill,54px)] gap-3 p-3 sm:gap-4 sm:p-4">
+            <div className="flex flex-wrap gap-3 p-3 sm:gap-4 sm:p-4">
               {datepicker.selection
                 .sort((a, b) => a.getTime() - b.getTime())
                 .map((selectedDate, i) => {
@@ -423,18 +468,18 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
                     <DateCard
                       key={i}
                       {...getDateProps(selectedDate)}
-                      annotation={
-                        <CompactButton
-                          icon={XIcon}
-                          onClick={() => {
-                            // TODO (Luke Vella) [2022-03-19]: Find cleaner way to manage this state
-                            // Quite tedious right now to remove a single element
-                            onChange(
-                              removeAllOptionsForDay(options, selectedDate),
-                            );
-                          }}
-                        />
-                      }
+                      // annotation={
+                      //   <CompactButton
+                      //     icon={XIcon}
+                      //     onClick={() => {
+                      //       // TODO (Luke Vella) [2022-03-19]: Find cleaner way to manage this state
+                      //       // Quite tedious right now to remove a single element
+                      //       onChange(
+                      //         removeAllOptionsForDay(options, selectedDate),
+                      //       );
+                      //     }}
+                      //   />
+                      // }
                     />
                   );
                 })}
@@ -442,7 +487,7 @@ const MonthCalendar: React.FunctionComponent<DateTimePickerProps> = ({
           ) : (
             <div className="flex h-full items-center justify-center py-12">
               <div className="text-center font-medium text-gray-400">
-                <CalendarIcon className="mb-2 inline-block h-12 w-12" />
+                <CalendarIcon className="mb-2 inline-block size-12" />
                 <div>{t("noDatesSelected")}</div>
               </div>
             </div>

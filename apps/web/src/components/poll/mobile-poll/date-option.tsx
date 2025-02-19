@@ -1,11 +1,12 @@
 import * as React from "react";
 
-import DateCard from "../../date-card";
-import PollOption, { PollOptionProps } from "./poll-option";
+import type { PollOptionProps } from "./poll-option";
+import PollOption from "./poll-option";
 
 export interface DateOptionProps extends PollOptionProps {
   dow: string;
   day: string;
+  month: string;
 }
 
 const DateOption: React.FunctionComponent<DateOptionProps> = ({
@@ -19,7 +20,11 @@ const DateOption: React.FunctionComponent<DateOptionProps> = ({
        * Intentionally using the month prop for the day of week here as a temporary measure
        * until we update this component.
        */}
-      <DateCard day={day} month={dow} />
+      <div className="text-sm">
+        <span className="font-semibold">
+          {day} {dow}
+        </span>
+      </div>
     </PollOption>
   );
 };

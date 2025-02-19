@@ -1,11 +1,11 @@
-import { VoteType } from "@rallly/database";
+import type { VoteType } from "@rallly/database";
 import * as React from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller } from "react-hook-form";
 
+import { useVotingForm } from "@/components/poll/voting-form";
 import { usePoll } from "@/components/poll-context";
-import { ParsedDateTimeOpton } from "@/utils/date-time-utils";
+import type { ParsedDateTimeOpton } from "@/utils/date-time-utils";
 
-import { ParticipantForm } from "../types";
 import DateOption from "./date-option";
 import TimeSlotOption from "./time-slot-option";
 
@@ -20,13 +20,13 @@ const PollOptions: React.FunctionComponent<PollOptions> = ({
   editable,
   selectedParticipantId,
 }) => {
-  const { control } = useFormContext<ParticipantForm>();
+  const { control } = useVotingForm();
   const {
     getParticipantsWhoVotedForOption,
     getParticipantById,
     getScore,
     getVote,
-    options: allOptions,
+    optionIds,
   } = usePoll();
   const selectedParticipant = selectedParticipantId
     ? getParticipantById(selectedParticipantId)
@@ -37,8 +37,8 @@ const PollOptions: React.FunctionComponent<PollOptions> = ({
       {options.map((option) => {
         const participants = getParticipantsWhoVotedForOption(option.optionId);
         const score = getScore(option.optionId);
-        const index = allOptions.findIndex(
-          ({ optionId }) => option.optionId === optionId,
+        const index = optionIds.findIndex(
+          (optionId) => option.optionId === optionId,
         );
         return (
           <Controller
@@ -88,6 +88,7 @@ const PollOptions: React.FunctionComponent<PollOptions> = ({
                       vote={vote}
                       dow={option.dow}
                       day={option.day}
+                      month={option.month}
                       editable={editable}
                       selectedParticipantId={selectedParticipant?.id}
                     />

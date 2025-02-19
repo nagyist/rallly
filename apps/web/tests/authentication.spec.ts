@@ -1,29 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "@rallly/database";
 import { load } from "cheerio";
-import smtpTester from "smtp-tester";
+
+import { captureEmailHTML } from "./mailpit/mailpit";
+import { RegisterPage } from "./register-page";
+import { getCode } from "./utils";
 
 const testUserEmail = "test@example.com";
-let mailServer: smtpTester.SmtpTester;
-/**
- * Get the 6-digit code from the email
- * @returns 6-digit code
- */
-const getCode = async () => {
-  const { email } = await mailServer.captureOne(testUserEmail, {
-    wait: 5000,
-  });
-
-  const $ = load(email.html);
-
-  return $("#code").text().trim();
-};
 
 test.describe.serial(() => {
-  test.beforeAll(() => {
-    mailServer = smtpTester.init(4025);
-  });
-
   test.afterAll(async () => {
     try {
       await prisma.user.deleteMany({
@@ -34,7 +19,6 @@ test.describe.serial(() => {
     } catch {
       // User doesn't exist
     }
-    mailServer.stop();
   });
 
   test.describe("new user", () => {
@@ -42,9 +26,11 @@ test.describe.serial(() => {
       await page.goto("/login");
 
       // your login page test logic
-      await page.getByPlaceholder("jessie.smith@example.com").type(testUserEmail);
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill(testUserEmail);
 
-      await page.getByText("Continue").click();
+      await page.getByRole("button", { name: "Continue with Email" }).click();
 
       // Make sure the user doesn't exist yet and that logging in is not possible
       await expect(
@@ -53,26 +39,12 @@ test.describe.serial(() => {
     });
 
     test("user registration", async ({ page }) => {
-      await page.goto("/register");
-
-      await page.getByText("Create an account").waitFor();
-
-      await page.getByPlaceholder("Jessie Smith").type("Test User");
-      await page.getByPlaceholder("jessie.smith@example.com").type(testUserEmail);
-
-      await page.click("text=Continue");
-
-      const codeInput = page.getByPlaceholder("Enter your 6-digit code");
-
-      codeInput.waitFor({ state: "visible" });
-
-      const code = await getCode();
-
-      await codeInput.type(code);
-
-      await page.getByText("Continue").click();
-
-      await expect(page.getByText("Your details")).toBeVisible();
+      const registerPage = new RegisterPage(page);
+      registerPage.goto();
+      await registerPage.register({
+        name: "Test User",
+        email: testUserEmail,
+      });
     });
   });
 
@@ -80,36 +52,32 @@ test.describe.serial(() => {
     test("can't register with the same email", async ({ page }) => {
       await page.goto("/register");
 
-      await page.getByText("Create an account").waitFor();
+      await page.getByText("Create Your Account").waitFor();
 
-      await page.getByPlaceholder("Jessie Smith").type("Test User");
-      await page.getByPlaceholder("jessie.smith@example.com").type(testUserEmail);
+      await page.getByPlaceholder("Jessie Smith").fill("Test User");
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill(testUserEmail);
 
-      await page.click("text=Continue");
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
 
       await expect(
         page.getByText("A user with that email already exists"),
       ).toBeVisible();
     });
 
-    test.describe("login", () => {
-      test.afterEach(async ({ page }) => {
-        await page.goto("/logout");
-      });
-    });
-
     test("can login with magic link", async ({ page }) => {
       await page.goto("/login");
 
-      await page.getByPlaceholder("jessie.smith@example.com").type(testUserEmail);
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill(testUserEmail);
 
-      await page.getByText("Continue").click();
+      await page.getByRole("button", { name: "Continue with Email" }).click();
 
-      const { email } = await mailServer.captureOne(testUserEmail, {
-        wait: 5000,
-      });
+      const html = await captureEmailHTML(testUserEmail);
 
-      const $ = load(email.html);
+      const $ = load(html);
 
       const magicLink = $("#magicLink").attr("href");
 
@@ -119,25 +87,57 @@ test.describe.serial(() => {
 
       await page.goto(magicLink);
 
-      page.getByText("Click here").click();
+      await page.getByRole("button", { name: "Login", exact: true }).click();
 
-      await expect(page.getByText("Your details")).toBeVisible();
+      await expect(page.getByText("Test User")).toBeVisible();
+    });
+
+    test("shows error for invalid verification code", async ({ page }) => {
+      await page.goto("/login");
+
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill(testUserEmail);
+
+      await page.getByRole("button", { name: "Continue with Email" }).click();
+
+      await page.getByPlaceholder("Enter your 6-digit code").fill("000000");
+
+      await expect(
+        page.getByText("Your verification code is incorrect or has expired"),
+      ).toBeVisible();
     });
 
     test("can login with verification code", async ({ page }) => {
       await page.goto("/login");
 
-      await page.getByPlaceholder("jessie.smith@example.com").type(testUserEmail);
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill(testUserEmail);
 
-      await page.getByText("Continue").click();
+      await page.getByRole("button", { name: "Continue with Email" }).click();
 
-      const code = await getCode();
+      const code = await getCode(testUserEmail);
 
-      await page.getByPlaceholder("Enter your 6-digit code").type(code);
+      await page.getByPlaceholder("Enter your 6-digit code").fill(code);
 
-      await page.getByText("Continue").click();
+      await expect(page.getByText("Test User")).toBeVisible();
+    });
 
-      await expect(page.getByText("Your details")).toBeVisible();
+    test("allow using different case in email", async ({ page }) => {
+      await page.goto("/login");
+
+      await page
+        .getByPlaceholder("jessie.smith@example.com")
+        .fill("Test@example.com");
+
+      await page.getByRole("button", { name: "Continue with Email" }).click();
+
+      const code = await getCode(testUserEmail);
+
+      await page.getByPlaceholder("Enter your 6-digit code").fill(code);
+
+      await expect(page.getByText("Test User")).toBeVisible();
     });
   });
 });

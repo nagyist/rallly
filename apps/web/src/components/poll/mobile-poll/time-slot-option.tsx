@@ -1,7 +1,8 @@
-import { ClockIcon } from "@rallly/icons";
+import { ClockIcon } from "lucide-react";
 import * as React from "react";
 
-import PollOption, { PollOptionProps } from "./poll-option";
+import type { PollOptionProps } from "./poll-option";
+import PollOption from "./poll-option";
 
 export interface TimeSlotOptionProps extends PollOptionProps {
   startTime: string;
@@ -16,10 +17,10 @@ const TimeSlotOption: React.FunctionComponent<TimeSlotOptionProps> = ({
 }) => {
   return (
     <PollOption {...rest}>
-      <div className="grow">
-        <div className="h-7">{`${startTime}`}</div>
-        <div className="flex grow items-center text-sm text-slate-500">
-          <ClockIcon className="leading- mr-1 inline w-4" />
+      <div className="flex items-center gap-x-4 text-sm">
+        <div>{startTime}</div>
+        <div className="flex items-center gap-x-1.5 opacity-50">
+          <ClockIcon className="size-4" />
           {duration}
         </div>
       </div>

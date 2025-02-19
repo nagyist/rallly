@@ -1,8 +1,7 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@rallly/ui/tooltip";
+import Linkify from "linkify-react";
 import Link from "next/link";
 import * as React from "react";
-import ReactLinkify from "react-linkify";
-
-import Tooltip from "../tooltip";
 
 export const truncateLink = (href: string, text: string, key: number) => {
   const textWithoutProtocol = text.replace(/^https?:\/\//i, "");
@@ -17,6 +16,7 @@ export const truncateLink = (href: string, text: string, key: number) => {
       <Link
         className="text-link"
         key={key}
+        target="_blank"
         href={href}
         rel="nofollow noreferrer"
       >
@@ -26,25 +26,40 @@ export const truncateLink = (href: string, text: string, key: number) => {
   } else {
     finalText += "…";
     return (
-      <Tooltip
-        key={key}
-        content={
-          <div className="max-w-md break-all font-mono text-xs">{href}</div>
-        }
-      >
-        <Link className="text-link" href={href} rel="nofollow noreferrer">
-          {finalText}
-        </Link>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            className="text-link"
+            target="_blank"
+            href={href}
+            rel="nofollow noreferrer"
+          >
+            {finalText}
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-md break-all text-xs">
+          {href}
+        </TooltipContent>
       </Tooltip>
     );
   }
 };
 
-const TruncatedLinkify: React.FunctionComponent<{
-  children?: React.ReactNode;
-}> = ({ children }) => {
+const TruncatedLinkify = ({ children }: { children: React.ReactNode }) => {
   return (
-    <ReactLinkify componentDecorator={truncateLink}>{children}</ReactLinkify>
+    <Linkify
+      options={{
+        render: ({ attributes, content }) => {
+          return truncateLink(
+            attributes.href,
+            content,
+            attributes.key as number,
+          );
+        },
+      }}
+    >
+      {children}
+    </Linkify>
   );
 };
 

@@ -6,10 +6,33 @@ const getVercelUrl = () => {
     : null;
 };
 
-export function absoluteUrl(path = "") {
+function joinPath(baseUrl: string, subpath = "") {
+  if (subpath) {
+    const url = new URL(subpath, baseUrl);
+    return url.href;
+  }
+
+  return baseUrl;
+}
+
+export function absoluteUrl(subpath = "", query: Record<string, string> = {}) {
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ??
     getVercelUrl() ??
     `http://localhost:${port}`;
-  return `${baseUrl}${path}`;
+
+  const url = new URL(subpath, baseUrl);
+
+  Object.entries(query).forEach(([key, value]) => {
+    url.searchParams.set(key, value);
+  });
+
+  const urlString = url.href;
+
+  return urlString.endsWith("/") ? urlString.slice(0, -1) : urlString;
+}
+
+export function shortUrl(subpath = "") {
+  const baseUrl = process.env.NEXT_PUBLIC_SHORT_BASE_URL ?? absoluteUrl();
+  return joinPath(baseUrl, subpath);
 }

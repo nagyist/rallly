@@ -1,10 +1,13 @@
-import clsx from "clsx";
+import { FormField, FormItem, FormLabel, FormMessage } from "@rallly/ui/form";
+import { Input } from "@rallly/ui/input";
+import { Textarea } from "@rallly/ui/textarea";
 import { useTranslation } from "next-i18next";
-import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useFormContext } from "react-hook-form";
 
-import { requiredString } from "../../utils/form-validation";
-import { PollFormProps } from "./types";
+import { Trans } from "@/components/trans";
+import { useFormValidation } from "@/utils/form-validation";
+
+import type { NewEventData } from "./types";
 
 export interface PollDetailsData {
   title: string;
@@ -12,70 +15,74 @@ export interface PollDetailsData {
   description: string;
 }
 
-export const PollDetailsForm: React.FunctionComponent<
-  PollFormProps<PollDetailsData>
-> = ({ name, defaultValues, onSubmit, onChange, className }) => {
-  const { t } = useTranslation("app");
-  const {
-    handleSubmit,
-    register,
-    watch,
-    formState: { errors },
-  } = useForm<PollDetailsData>({ defaultValues });
+export const PollDetailsForm = () => {
+  const { t } = useTranslation();
+  const form = useFormContext<NewEventData>();
 
-  React.useEffect(() => {
-    if (onChange) {
-      const subscription = watch(onChange);
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [onChange, watch]);
+  const { requiredString } = useFormValidation();
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   return (
-    <form
-      id={name}
-      className={clsx("max-w-full", className)}
-      onSubmit={handleSubmit(onSubmit)}
-    >
-      <div className="formField">
-        <label htmlFor="title" className="mb-1">
-          {t("title")}
-        </label>
-        <input
-          type="text"
-          id="title"
-          className={clsx("input w-full", {
-            "input-error": errors.title,
-          })}
-          placeholder={t("titlePlaceholder")}
-          {...register("title", { validate: requiredString })}
-        />
-      </div>
-      <div className="formField">
-        <label htmlFor="location" className="mb-1">
-          {t("location")}
-        </label>
-        <input
+    <div className="grid gap-4 py-1">
+      <FormField
+        control={form.control}
+        name="title"
+        rules={{
+          validate: requiredString(t("title")),
+        }}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel htmlFor="title">{t("title")}</FormLabel>
+            <Input
+              {...field}
+              type="text"
+              error={!!errors.title}
+              id="title"
+              className="w-full"
+              placeholder={t("titlePlaceholder")}
+            />
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormItem>
+        <div>
+          <FormLabel className="inline-block" htmlFor="location">
+            {t("location")}
+          </FormLabel>
+          <span className="text-muted-foreground ml-1 text-sm">
+            <Trans i18nKey="optionalLabel" defaults="(Optional)" />
+          </span>
+        </div>
+        <Input
           type="text"
           id="location"
-          className="input w-full"
+          className="w-full"
           placeholder={t("locationPlaceholder")}
           {...register("location")}
         />
-      </div>
-      <div>
-        <label htmlFor="description" className="mb-1">
-          {t("description")}
-        </label>
-        <textarea
+      </FormItem>
+      <FormItem>
+        <div>
+          <FormLabel className="inline-block" htmlFor="description">
+            {t("description")}
+          </FormLabel>
+          <span className="text-muted-foreground ml-1 text-sm">
+            <Trans i18nKey="optionalLabel" defaults="(Optional)" />
+          </span>
+        </div>
+        <Textarea
+          className="w-full"
           id="description"
-          className="input w-full"
           placeholder={t("descriptionPlaceholder")}
           rows={5}
           {...register("description")}
         />
-      </div>
-    </form>
+      </FormItem>
+    </div>
   );
 };

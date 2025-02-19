@@ -1,42 +1,100 @@
-import { EmailLayout } from "./components/email-layout";
-import { Button, Domain, Section, Text } from "./components/styled-components";
-import { getDomain } from "./components/utils";
+import { Trans } from "react-i18next/TransWithoutContext";
+
+import { EmailLayout } from "../components/email-layout";
+import {
+  Button,
+  Domain,
+  Heading,
+  Section,
+  Text,
+} from "../components/styled-components";
+import type { EmailContext } from "../types";
 
 interface NewParticipantConfirmationEmailProps {
-  name: string;
   title: string;
   editSubmissionUrl: string;
+  ctx: EmailContext;
 }
-export const NewParticipantConfirmationEmail = ({
-  title = "Untitled Poll",
-  name = "John",
-  editSubmissionUrl = "https://rallly.co",
+
+const NewParticipantConfirmationEmail = ({
+  title,
+  editSubmissionUrl,
+  ctx,
 }: NewParticipantConfirmationEmailProps) => {
+  const { domain } = ctx;
   return (
     <EmailLayout
-      footNote={
-        <>
-          You are receiving this email because a response was submitted on{" "}
-          <Domain />. If this wasn&apos;t you, please ignore this email.
-        </>
-      }
-      recipientName={name}
-      preview="To edit your response use the link below"
+      ctx={ctx}
+      preview={ctx.t("newParticipantConfirmation_preview", {
+        defaultValue: "To edit your response use the link below",
+        ns: "emails",
+      })}
     >
+      <Heading>
+        {ctx.t("newParticipantConfirmation_heading", {
+          defaultValue: "Poll Response Confirmation",
+          ns: "emails",
+        })}
+      </Heading>
       <Text>
-        Thank you for responding to <strong>{title}</strong>.
+        <Trans
+          i18n={ctx.i18n}
+          t={ctx.t}
+          i18nKey="newParticipantConfirmation_content"
+          defaults="Your response to <b>{{title}}</b> has been submitted."
+          components={{
+            b: <strong />,
+          }}
+          values={{ title }}
+          ns="emails"
+        />
       </Text>
       <Text>
-        While the poll is still open you can change your response using the link
-        below.
+        <Trans
+          i18n={ctx.i18n}
+          t={ctx.t}
+          i18nKey="newParticipantConfirmation_content2"
+          defaults="While the poll is still open you can change your response using the link below."
+          ns="emails"
+        />
       </Text>
-      <Section>
+      <Section style={{ marginTop: 32 }}>
         <Button id="editSubmissionUrl" href={editSubmissionUrl}>
-          Review response on {getDomain()}
+          <Trans
+            i18n={ctx.i18n}
+            t={ctx.t}
+            i18nKey="newParticipantConfirmation_button"
+            defaults="Review response on {{domain}}"
+            values={{ domain }}
+            ns="emails"
+          />
         </Button>
       </Section>
+      <Text light>
+        <Trans
+          i18n={ctx.i18n}
+          t={ctx.t}
+          i18nKey="newParticipantConfirmation_footnote"
+          defaults="You are receiving this email because a response was submitted on <domain />. If this wasn't you, please ignore this email."
+          components={{
+            domain: <Domain ctx={ctx} />,
+          }}
+          ns="emails"
+        />
+      </Text>
     </EmailLayout>
   );
 };
 
-export default NewParticipantConfirmationEmail;
+NewParticipantConfirmationEmail.getSubject = (
+  props: NewParticipantConfirmationEmailProps,
+  ctx: EmailContext,
+) => {
+  return ctx.t("newParticipantConfirmation_subject", {
+    defaultValue: "Thanks for responding to {{title}}",
+    title: props.title,
+    ns: "emails",
+  });
+};
+
+export { NewParticipantConfirmationEmail };

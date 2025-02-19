@@ -2,72 +2,114 @@
   "name": "Rallly",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://rallly.co"
   },
   "favicon": "/favicon.png",
   "colors": {
-    "primary": "#6366F1",
-    "light": "#9C9EFF",
-    "dark": "#334155",
+    "primary": "#4F46E5",
+    "light": "#6366f1",
+    "dark": "#4F46E5",
+    "background": {
+      "light": "#F9FAFB",
+      "dark": "#18181B"
+    },
     "anchors": { "from": "#878AFA", "to": "#4347F1" }
   },
   "topbarCtaButton": {
-    "name": "Get started",
-    "url": "https://rallly.co/new"
+    "name": "Go to App",
+    "url": "https://app.rallly.co"
   },
   "topbarLinks": [
     {
-      "name": "Live demo",
-      "url": "https://rallly.co/demo"
+      "name": "Contact",
+      "url": "/contact/support"
     }
   ],
-  "anchors": [
+  "tabs": [
     {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://github.com/lukevella/rallly"
+      "name": "Self-Hosting",
+      "url": "self-hosting"
     },
     {
-      "name": "Blog",
-      "icon": "newspaper",
-      "url": "https://blog.rallly.co/"
-    },
-    {
-      "name": "Contact us",
-      "icon": "comments",
-      "url": "https://go.crisp.chat/chat/embed/?website_id=19d601db-af05-4f24-8342-8dd4449aedb8"
+      "name": "Contribute",
+      "url": "contribute"
     }
   ],
   "navigation": [
     {
-      "group": "Introduction",
-      "pages": ["introduction"]
+      "group": "Documentation",
+      "pages": ["introduction", "faq"]
     },
     {
-      "group": "Administrators",
+      "group": "How it Works",
+      "pages": ["workflow/create", "workflow/invite", "workflow/finalize"]
+    },
+    {
+      "group": "Guides",
+      "pages": ["guide/participant-guide"]
+    },
+    {
+      "group": "Self-Hosting",
       "pages": [
-        "administrators/accessing-the-admin-page",
-        "administrators/sharing-a-poll",
-        "administrators/editing-a-poll",
-        "administrators/deleting-a-poll"
+        "self-hosting/introduction",
+        {
+          "icon": "bolt",
+          "group": "Get Started",
+          "pages": [
+            "self-hosting/docker-compose",
+            "self-hosting/single-sign-on",
+            "self-hosting/configuration-options"
+          ]
+        },
+        "self-hosting/pricing",
+        "self-hosting/managed-hosting"
       ]
     },
     {
-      "group": "Participants",
+      "group": "Contribute",
+      "pages": ["contribute/introduction"]
+    },
+    {
+      "group": "How to Contribute",
       "pages": [
-        "participants/submitting-a-response",
-        "participants/editing-a-response"
+        "contribute/donations",
+        "contribute/translations",
+        "contribute/documentation"
       ]
     },
     {
-      "group": "Other Docs",
-      "pages": ["guest-sessions", "privacy-and-security", "self-hosting"]
+      "group": "Contact",
+      "pages": ["contact/support"]
     }
   ],
   "footerSocials": {
     "twitter": "https://twitter.com/ralllyco",
+    "linkedin": "https://www.linkedin.com/company/rallly/",
     "github": "https://github.com/lukevella/rallly",
     "discord": "https://discord.com/invite/uzg4ZcHbuM",
     "website": "https://rallly.co/"
-  }
+  },
+  "feedback": {
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "redirects": [
+    {
+      "source": "/administrators/creating-a-meeting-poll",
+      "destination": "/workflow/create"
+    },
+    {
+      "source": "/administrators/sharing-a-meeting-poll",
+      "destination": "/workflow/invite"
+    },
+    {
+      "source": "/participants/submitting-a-response",
+      "destination": "/guide/participant-guide"
+    },
+    {
+      "source": "/participants/editing-a-response",
+      "destination": "/guide/participant-guide"
+    }
+  ]
 }

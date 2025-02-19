@@ -1,23 +1,23 @@
+import dayjs from "dayjs";
 import { useTranslation } from "next-i18next";
 
-import { usePoll } from "@/components/poll-context";
+import { useOptions, usePoll } from "@/components/poll-context";
 
-import { useDayjs } from "../../../utils/dayjs";
 import { useParticipants } from "../../participants-provider";
 
 export const useCsvExporter = () => {
-  const { dayjs } = useDayjs();
-  const { poll, options } = usePoll();
-  const { t } = useTranslation("app");
+  const { poll } = usePoll();
+  const { options } = useOptions();
+  const { t } = useTranslation();
   const { participants } = useParticipants();
+
   return {
     exportToCsv: () => {
       const header = [
-        t("participantCount", {
-          count: participants.length,
-        }),
+        t("name"),
+        t("email"),
         ...options.map((decodedOption) => {
-          const day = `${decodedOption.dow} ${decodedOption.day} ${decodedOption.month}`;
+          const day = `${decodedOption.dow} ${decodedOption.day} ${decodedOption.month} ${decodedOption.year}`;
           return decodedOption.type === "date"
             ? day
             : `${day} ${decodedOption.startTime} - ${decodedOption.endTime}`;
@@ -26,6 +26,7 @@ export const useCsvExporter = () => {
       const rows = participants.map((participant) => {
         return [
           participant.name,
+          participant.email,
           ...poll.options.map((option) => {
             const vote = participant.votes.find((vote) => {
               return vote.optionId === option.id;

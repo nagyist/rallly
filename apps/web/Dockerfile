@@ -1,11 +1,11 @@
-FROM node:16 AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 RUN yarn global add turbo
 COPY . .
 RUN turbo prune --scope=@rallly/web --docker
 
-FROM node:16 AS installer
+FROM node:20 AS installer
 
 WORKDIR /app
 COPY .gitignore .gitignore
@@ -21,9 +21,22 @@ RUN yarn db:generate
 ARG APP_VERSION
 ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 
-RUN yarn build
+ARG SELF_HOSTED
+ENV NEXT_PUBLIC_SELF_HOSTED=$SELF_HOSTED
 
-FROM node:16 AS runner
+RUN SKIP_ENV_VALIDATION=1 yarn build
+
+FROM node:20-slim AS runner
+
+# prisma requirements
+# (see https://www.prisma.io/docs/orm/reference/system-requirements)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    openssl \
+    zlib1g \
+    libgcc-s1 \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -39,7 +52,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/packages/database/prisma ./prisma
 COPY --from=installer /app/apps/web/next.config.js .
 COPY --from=installer /app/apps/web/package.json .
 
-ENV PORT 3000
+ENV PORT=3000
 EXPOSE 3000
 
 # Automatically leverage output traces to reduce image size
@@ -47,5 +60,11 @@ EXPOSE 3000
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+ARG SELF_HOSTED
+ENV NEXT_PUBLIC_SELF_HOSTED=$SELF_HOSTED
+ENV HOSTNAME=0.0.0.0
+
+HEALTHCHECK CMD curl --fail http://localhost:${PORT}/api/status || exit 1
 
 CMD ["./docker-start.sh"]

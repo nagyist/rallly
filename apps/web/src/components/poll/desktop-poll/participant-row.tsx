@@ -1,146 +1,154 @@
-import { Participant, Vote, VoteType } from "@rallly/database";
-import clsx from "clsx";
+import type { VoteType } from "@rallly/database";
+import { cn } from "@rallly/ui";
+import { Badge } from "@rallly/ui/badge";
+import { Button } from "@rallly/ui/button";
+import { Icon } from "@rallly/ui/icon";
+import { MoreHorizontalIcon } from "lucide-react";
 import * as React from "react";
 
+import { OptimizedAvatarImage } from "@/components/optimized-avatar-image";
+import { Participant, ParticipantName } from "@/components/participant";
 import { ParticipantDropdown } from "@/components/participant-dropdown";
 import { usePoll } from "@/components/poll-context";
+import { Trans } from "@/components/trans";
 import { useUser } from "@/components/user-provider";
+import { usePermissions } from "@/contexts/permissions";
+import type { Vote } from "@/trpc/client/types";
 
-import { ParticipantFormSubmitted } from "../types";
-import UserAvatar from "../user-avatar";
 import VoteIcon from "../vote-icon";
-import ControlledScrollArea from "./controlled-scroll-area";
 import ParticipantRowForm from "./participant-row-form";
-import { usePollContext } from "./poll-context";
 
 export interface ParticipantRowProps {
-  participant: Participant & { votes: Vote[] };
+  participant: {
+    id: string;
+    name: string;
+    userId?: string;
+    guestId?: string;
+    email?: string;
+    votes: Vote[];
+  };
   className?: string;
   editMode?: boolean;
-  disableEditing?: boolean;
   onChangeEditMode?: (editMode: boolean) => void;
-  onSubmit?: (data: ParticipantFormSubmitted) => Promise<void>;
 }
 
 export const ParticipantRowView: React.FunctionComponent<{
   name: string;
   action?: React.ReactNode;
-  color?: string;
   votes: Array<VoteType | undefined>;
-  columnWidth: number;
   className?: string;
-  sidebarWidth: number;
   isYou?: boolean;
   participantId: string;
-}> = ({
-  name,
-  action,
-  votes,
-  className,
-  sidebarWidth,
-  columnWidth,
-  isYou,
-  color,
-  participantId,
-}) => {
+}> = ({ name, action, votes, className, isYou, participantId }) => {
   return (
-    <div
+    <tr
       data-testid="participant-row"
       data-participantid={participantId}
-      className={clsx("flex h-12 items-center", className)}
+      className={cn("group", className)}
     >
-      <div
-        className="flex h-full shrink-0 items-center justify-between gap-2 px-3"
-        style={{ width: sidebarWidth }}
+      <td
+        style={{ minWidth: 240, maxWidth: 240 }}
+        className="sticky left-0 z-10 h-12 bg-white px-4"
       >
-        <UserAvatar name={name} showName={true} isYou={isYou} color={color} />
-        {action}
-      </div>
-      <ControlledScrollArea className="h-full">
-        {votes.map((vote, i) => {
-          return (
-            <div
-              key={i}
-              className={clsx("relative flex h-full shrink-0 p-1")}
-              style={{ width: columnWidth }}
-            >
+        <div className="flex max-w-full items-center justify-between gap-x-4">
+          <div className="min-w-0">
+            <Participant>
+              <OptimizedAvatarImage size="xs" name={name} />
+              <ParticipantName>{name}</ParticipantName>
+              {isYou ? (
+                <Badge>
+                  <Trans i18nKey="you" />
+                </Badge>
+              ) : null}
+            </Participant>
+          </div>
+          <div>{action}</div>
+        </div>
+      </td>
+      {votes.map((vote, i) => {
+        return (
+          <td
+            key={i}
+            className={cn(
+              "h-12 border-l border-t",
+              !vote || vote === "no" ? "bg-gray-100" : "bg-white",
+              {
+                "bg-gray-100": vote === "no",
+                // "bg-waves": vote === "ifNeedBe",
+              },
+            )}
+          >
+            <div className={cn("flex items-center justify-center")}>
               <div
-                className={clsx(
-                  "flex h-full w-full items-center justify-center rounded border bg-gray-50",
+                className={cn(
+                  "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                  {
+                    "bg-green-50": vote === "yes",
+                    "bg-amber-50": vote === "ifNeedBe",
+                    "bg-gray-200": vote === "no",
+                  },
                 )}
               >
                 <VoteIcon type={vote} />
               </div>
             </div>
-          );
-        })}
-      </ControlledScrollArea>
-    </div>
+          </td>
+        );
+      })}
+      <td className="bg-diagonal-lines border-l"></td>
+    </tr>
   );
 };
 
 const ParticipantRow: React.FunctionComponent<ParticipantRowProps> = ({
   participant,
   editMode,
-  onSubmit,
   className,
-  disableEditing,
   onChangeEditMode,
 }) => {
-  const { columnWidth, sidebarWidth } = usePollContext();
+  const { ownsObject } = useUser();
+  const { getVote, optionIds } = usePoll();
 
-  const session = useUser();
-  const { poll, getVote, options, admin } = usePoll();
+  const isYou = ownsObject(participant) ? true : false;
 
-  const isYou = session.user && session.ownsObject(participant) ? true : false;
-
-  const isUnclaimed = !participant.userId;
-
-  const canEdit =
-    !disableEditing && !poll.closed && (admin || isYou || isUnclaimed);
+  const { canEditParticipant } = usePermissions();
+  const canEdit = canEditParticipant(participant.id);
 
   if (editMode) {
     return (
       <ParticipantRowForm
         name={participant.name}
-        defaultValues={{
-          votes: options.map(({ optionId }) => {
-            const type = getVote(participant.id, optionId);
-            return type ? { optionId, type } : undefined;
-          }),
-        }}
         isYou={isYou}
-        onSubmit={async ({ votes }) => {
-          await onSubmit?.({ votes });
-          onChangeEditMode?.(false);
-        }}
         onCancel={() => onChangeEditMode?.(false)}
       />
     );
   }
 
   return (
-    <>
-      <ParticipantRowView
-        sidebarWidth={sidebarWidth}
-        columnWidth={columnWidth}
-        className={className}
-        name={participant.name}
-        votes={options.map(({ optionId }) => {
-          return getVote(participant.id, optionId);
-        })}
-        participantId={participant.id}
-        action={
-          canEdit ? (
-            <ParticipantDropdown
-              participant={participant}
-              onEdit={() => onChangeEditMode?.(true)}
-            />
-          ) : null
-        }
-        isYou={isYou}
-      />
-    </>
+    <ParticipantRowView
+      className={className}
+      name={participant.name}
+      votes={optionIds.map((optionId) => {
+        return getVote(participant.id, optionId);
+      })}
+      participantId={participant.id}
+      action={
+        canEdit ? (
+          <ParticipantDropdown
+            participant={participant}
+            align="start"
+            onEdit={() => onChangeEditMode?.(true)}
+          >
+            <Button size="sm" variant="ghost">
+              <Icon>
+                <MoreHorizontalIcon />
+              </Icon>
+            </Button>
+          </ParticipantDropdown>
+        ) : null
+      }
+      isYou={isYou}
+    />
   );
 };
 

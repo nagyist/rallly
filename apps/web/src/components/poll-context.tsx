@@ -1,45 +1,41 @@
-import { Participant, Vote, VoteType } from "@rallly/database";
-import { TrashIcon } from "@rallly/icons";
+import type { Participant, VoteType } from "@rallly/database";
+import dayjs from "dayjs";
 import { keyBy } from "lodash";
+import { TrashIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import React from "react";
 
-import {
-  decodeOptions,
-  getBrowserTimeZone,
+import type { GetPollApiResponse, Vote } from "@/trpc/client/types";
+import type {
   ParsedDateOption,
   ParsedTimeSlotOption,
 } from "@/utils/date-time-utils";
-import { GetPollApiResponse } from "@/utils/trpc/types";
+import { getDuration } from "@/utils/date-time-utils";
+import { useDayjs } from "@/utils/dayjs";
 
-import { useDayjs } from "../utils/dayjs";
 import ErrorPage from "./error-page";
 import { useParticipants } from "./participants-provider";
 import { useRequiredContext } from "./use-required-context";
-import { useUser } from "./user-provider";
 
 type PollContextValue = {
-  userAlreadyVoted: boolean;
   poll: GetPollApiResponse;
   urlId: string;
   admin: boolean;
-  targetTimeZone: string;
-  participantUrl: string;
-  setTargetTimeZone: (timeZone: string) => void;
-  pollType: "date" | "timeSlot";
   highScore: number;
   optionIds: string[];
   // TODO (Luke Vella) [2022-05-18]: Move this stuff to participants provider
   getParticipantsWhoVotedForOption: (optionId: string) => Participant[]; // maybe just attach votes to parsed options
-  getScore: (optionId: string) => { yes: number; ifNeedBe: number };
+  getScore: (optionId: string) => {
+    yes: number;
+    ifNeedBe: number;
+    no: number;
+    skip: number;
+  };
   getParticipantById: (
     participantId: string,
   ) => (Participant & { votes: Vote[] }) | undefined;
   getVote: (participantId: string, optionId: string) => VoteType | undefined;
-} & (
-  | { pollType: "date"; options: ParsedDateOption[] }
-  | { pollType: "timeSlot"; options: ParsedTimeSlotOption[] }
-);
+};
 
 export const PollContext = React.createContext<PollContextValue | null>(null);
 
@@ -56,11 +52,8 @@ export const PollContextProvider: React.FunctionComponent<{
   admin: boolean;
   children?: React.ReactNode;
 }> = ({ poll, urlId, admin, children }) => {
-  const { t } = useTranslation("app");
+  const { t } = useTranslation();
   const { participants } = useParticipants();
-  const { user, ownsObject } = useUser();
-  const [targetTimeZone, setTargetTimeZone] =
-    React.useState(getBrowserTimeZone);
 
   const getScore = React.useCallback(
     (optionId: string) => {
@@ -72,37 +65,29 @@ export const PollContextProvider: React.FunctionComponent<{
             }
             if (vote.type === "yes") {
               acc.yes += 1;
-            }
-            if (vote.type === "ifNeedBe") {
+            } else if (vote.type === "ifNeedBe") {
               acc.ifNeedBe += 1;
-            }
-            if (vote.type === "no") {
+            } else if (vote.type === "no") {
               acc.no += 1;
+            } else {
+              acc.skip += 1;
             }
           });
           return acc;
         },
-        { yes: 0, ifNeedBe: 0, no: 0 },
+        { yes: 0, ifNeedBe: 0, no: 0, skip: 0 },
       );
     },
     [participants],
   );
 
-  const { timeFormat } = useDayjs();
-
   const contextValue = React.useMemo<PollContextValue>(() => {
     const highScore = poll.options.reduce((acc, curr) => {
-      const score = getScore(curr.id).yes;
-
+      const { yes, ifNeedBe } = getScore(curr.id);
+      const score = yes + ifNeedBe;
       return score > acc ? score : acc;
     }, 1);
 
-    const parsedOptions = decodeOptions(
-      poll.options,
-      poll.timeZone,
-      targetTimeZone,
-      timeFormat,
-    );
     const getParticipantById = (participantId: string) => {
       // TODO (Luke Vella) [2022-04-16]: Build an index instead
       const participant = participants?.find(({ id }) => id === participantId);
@@ -110,10 +95,7 @@ export const PollContextProvider: React.FunctionComponent<{
       return participant;
     };
 
-    const userAlreadyVoted =
-      user && participants ? participants.some(ownsObject) : false;
-
-    const optionIds = parsedOptions.options.map(({ optionId }) => optionId);
+    const optionIds = poll.options.map(({ id }) => id);
 
     const participantById = keyBy(
       participants,
@@ -130,17 +112,11 @@ export const PollContextProvider: React.FunctionComponent<{
       );
     });
 
-    const { participantUrlId } = poll;
-
-    const participantUrl = `${window.location.origin}/p/${participantUrlId}`;
-
     return {
       optionIds,
-      userAlreadyVoted,
       poll,
       urlId,
       admin,
-      participantUrl,
       getParticipantById: (participantId) => {
         return participantById[participantId];
       },
@@ -154,21 +130,8 @@ export const PollContextProvider: React.FunctionComponent<{
         return vote?.type;
       },
       getScore,
-      ...parsedOptions,
-      targetTimeZone,
-      setTargetTimeZone,
     };
-  }, [
-    admin,
-    getScore,
-    ownsObject,
-    participants,
-    poll,
-    targetTimeZone,
-    timeFormat,
-    urlId,
-    user,
-  ]);
+  }, [admin, getScore, participants, poll, urlId]);
 
   if (poll.deleted) {
     return (
@@ -181,5 +144,107 @@ export const PollContextProvider: React.FunctionComponent<{
   }
   return (
     <PollContext.Provider value={contextValue}>{children}</PollContext.Provider>
+  );
+};
+
+type OptionsContextValue =
+  | {
+      pollType: "date";
+      options: ParsedDateOption[];
+    }
+  | {
+      pollType: "timeSlot";
+      options: ParsedTimeSlotOption[];
+    };
+
+const OptionsContext = React.createContext<OptionsContextValue>({
+  pollType: "date",
+  options: [],
+});
+
+export const useOptions = () => {
+  const context = React.useContext(OptionsContext);
+  return context;
+};
+
+function createOptionsContextValue(
+  pollOptions: { id: string; startTime: Date; duration: number }[],
+  targetTimeZone: string,
+  sourceTimeZone: string | null,
+): OptionsContextValue {
+  if (pollOptions.length === 0) {
+    return {
+      pollType: "date",
+      options: [],
+    };
+  }
+  if (pollOptions[0].duration > 0) {
+    return {
+      pollType: "timeSlot",
+      options: pollOptions.map((option) => {
+        function adjustTimeZone(date: Date) {
+          if (sourceTimeZone) {
+            return dayjs(date).tz(targetTimeZone);
+          }
+          return dayjs(date).utc();
+        }
+        const localStartTime = adjustTimeZone(option.startTime);
+
+        // for some reason, dayjs requires us to do timezone conversion at the end
+        const localEndTime = adjustTimeZone(
+          dayjs(option.startTime).add(option.duration, "minute").toDate(),
+        );
+
+        return {
+          optionId: option.id,
+          type: "timeSlot",
+          startTime: localStartTime.format("LT"),
+          endTime: localEndTime.format("LT"),
+          duration: getDuration(localStartTime, localEndTime),
+          month: localStartTime.format("MMM"),
+          day: localStartTime.format("D"),
+          dow: localStartTime.format("ddd"),
+          year: localStartTime.format("YYYY"),
+        } satisfies ParsedTimeSlotOption;
+      }),
+    };
+  } else {
+    return {
+      pollType: "date",
+      options: pollOptions.map((option) => {
+        const localTime = sourceTimeZone
+          ? dayjs(option.startTime).tz(targetTimeZone)
+          : dayjs(option.startTime).utc();
+
+        return {
+          optionId: option.id,
+          type: "date",
+          month: localTime.format("MMM"),
+          day: localTime.format("D"),
+          dow: localTime.format("ddd"),
+          year: localTime.format("YYYY"),
+        } satisfies ParsedDateOption;
+      }),
+    };
+  }
+}
+
+export const OptionsProvider = (props: React.PropsWithChildren) => {
+  const { poll } = usePoll();
+  const { timeZone: targetTimeZone, timeFormat } = useDayjs();
+
+  const options = React.useMemo(() => {
+    return createOptionsContextValue(
+      poll.options,
+      targetTimeZone,
+      poll.timeZone,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poll.options, poll.timeZone, targetTimeZone, timeFormat]);
+
+  return (
+    <OptionsContext.Provider value={options}>
+      {props.children}
+    </OptionsContext.Provider>
   );
 };

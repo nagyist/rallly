@@ -1,13 +1,81 @@
-import { Option } from "@rallly/database";
 import dayjs from "dayjs";
 
-import {
+import { supportedTimeZones } from "@/utils/supported-time-zones";
+
+import type {
   DateTimeOption,
   TimeOption,
 } from "../components/forms/poll-options-form";
 
-export const getBrowserTimeZone = () =>
-  Intl.DateTimeFormat().resolvedOptions().timeZone;
+export function parseIanaTimezone(timezone: string): {
+  region: string;
+  city: string;
+} {
+  const firstSlash = timezone.indexOf("/");
+  const region = timezone.substring(0, firstSlash);
+  const city = timezone.substring(firstSlash + 1).replaceAll("_", " ");
+
+  return { region, city };
+}
+
+export function getBrowserTimeZone() {
+  const timeZone = dayjs.tz.guess();
+  return normalizeTimeZone(timeZone);
+}
+
+function getTimeZoneOffset(timeZone: string) {
+  try {
+    return dayjs().tz(timeZone).utcOffset();
+  } catch (e) {
+    console.error(`Failed to resolve timezone ${timeZone}`);
+    return 0;
+  }
+}
+
+function isFixedOffsetTimeZone(timeZone: string) {
+  return (
+    timeZone.toLowerCase().startsWith("etc") ||
+    timeZone.toLowerCase().startsWith("gmt") ||
+    timeZone.toLowerCase().startsWith("utc")
+  );
+}
+
+/**
+ * Given a timezone, this function returns a normalized timezone
+ * that is supported by the application. If the timezone is not
+ * recognized, it will return a timezone in the same continent
+ * with the same offset.
+ * @param timeZone
+ * @returns
+ */
+export function normalizeTimeZone(timeZone: string) {
+  let tz = supportedTimeZones.find((tz) => tz === timeZone);
+
+  if (tz) {
+    return tz;
+  }
+
+  const timeZoneOffset = getTimeZoneOffset(timeZone);
+
+  if (!isFixedOffsetTimeZone(timeZone)) {
+    // Find a timezone in the same continent with the same offset
+    const [continent] = timeZone.split("/");
+    const sameContinentTimeZones = supportedTimeZones.filter((tz) =>
+      tz.startsWith(continent),
+    );
+    tz = sameContinentTimeZones.find((tz) => {
+      return dayjs().tz(tz, true).utcOffset() === timeZoneOffset;
+    });
+  }
+
+  if (!tz) {
+    tz = supportedTimeZones.find((tz) => {
+      return getTimeZoneOffset(tz) === timeZoneOffset;
+    })!; // We assume there has to be a timezone with the same offset
+  }
+
+  return tz;
+}
 
 export const encodeDateOption = (option: DateTimeOption) => {
   return option.type === "timeSlot"
@@ -38,8 +106,6 @@ export interface ParsedTimeSlotOption {
 
 export type ParsedDateTimeOpton = ParsedDateOption | ParsedTimeSlotOption;
 
-const isTimeSlot = (value: string) => value.indexOf("/") !== -1;
-
 export const getDuration = (startTime: dayjs.Dayjs, endTime: dayjs.Dayjs) => {
   const hours = Math.floor(endTime.diff(startTime, "hours"));
   const minutes = Math.floor(endTime.diff(startTime, "minute") - hours * 60);
@@ -54,72 +120,6 @@ export const getDuration = (startTime: dayjs.Dayjs, endTime: dayjs.Dayjs) => {
     res += `${minutes}m`;
   }
   return res;
-};
-
-export const decodeOptions = (
-  options: Option[],
-  timeZone: string | null,
-  targetTimeZone: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _timeFormat: string, // TODO (Luke Vella) [2022-06-28]: Need to pass timeFormat so that we recalculate the options when timeFormat changes. There is definitely a better way to do this
-):
-  | { pollType: "date"; options: ParsedDateOption[] }
-  | { pollType: "timeSlot"; options: ParsedTimeSlotOption[] } => {
-  const pollType = options.some(({ duration }) => duration > 0)
-    ? "timeSlot"
-    : "date";
-
-  if (pollType === "timeSlot") {
-    return {
-      pollType,
-      options: options.map((option) =>
-        parseTimeSlotOption(option, timeZone, targetTimeZone),
-      ),
-    };
-  } else {
-    return {
-      pollType,
-      options: options.map((option) => parseDateOption(option)),
-    };
-  }
-};
-
-const parseDateOption = (option: Option): ParsedDateOption => {
-  const date = dayjs(option.start).utc();
-  return {
-    type: "date",
-    optionId: option.id,
-    day: date.format("D"),
-    dow: date.format("ddd"),
-    month: date.format("MMM"),
-    year: date.format("YYYY"),
-  };
-};
-
-const parseTimeSlotOption = (
-  option: Option,
-  timeZone: string | null,
-  targetTimeZone: string,
-): ParsedTimeSlotOption => {
-  const start = dayjs(option.start).utc();
-  const startDate =
-    timeZone && targetTimeZone
-      ? start.tz(timeZone, true).tz(targetTimeZone)
-      : start;
-
-  const endDate = startDate.add(option.duration, "minute");
-
-  return {
-    type: "timeSlot",
-    optionId: option.id,
-    startTime: startDate.format("LT"),
-    endTime: endDate.format("LT"),
-    day: startDate.format("D"),
-    dow: startDate.format("ddd"),
-    month: startDate.format("MMM"),
-    duration: getDuration(startDate, endDate),
-    year: startDate.format("YYYY"),
-  };
 };
 
 export const removeAllOptionsForDay = (
@@ -148,20 +148,4 @@ export const expectTimeOption = (d: DateTimeOption): TimeOption => {
     throw new Error("Expected timeSlot but got date instead");
   }
   return d;
-};
-
-export const parseValue = (value: string): DateTimeOption => {
-  if (isTimeSlot(value)) {
-    const [start, end] = value.split("/");
-    return {
-      type: "timeSlot",
-      start,
-      end,
-    };
-  } else {
-    return {
-      type: "date",
-      date: value,
-    };
-  }
 };

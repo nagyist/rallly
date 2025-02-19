@@ -1,6 +1,7 @@
 import React from "react";
 
-import Modal, { ModalProps } from "./modal";
+import type { ModalProps } from "./modal";
+import Modal from "./modal";
 
 type OpenModalFn = () => void;
 type CloseModalFn = () => void;
@@ -24,13 +25,4 @@ export const useModal = (
     />
   );
   return [modal, () => setVisible(true), () => setVisible(false)];
-};
-
-export const useModalState = (): [boolean, () => void, () => void] => {
-  const [visible, setVisible] = React.useState(false);
-
-  const hide = React.useCallback(() => setVisible(false), []);
-  const show = React.useCallback(() => setVisible(true), []);
-
-  return [visible, show, hide];
 };

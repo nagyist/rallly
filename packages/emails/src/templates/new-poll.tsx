@@ -1,114 +1,78 @@
-import { absoluteUrl } from "@rallly/utils";
+import { Trans } from "react-i18next/TransWithoutContext";
 
-import { EmailLayout } from "./components/email-layout";
+import { EmailLayout } from "../components/email-layout";
 import {
   Button,
   Card,
   Heading,
   Link,
-  SubHeadingText,
   Text,
-} from "./components/styled-components";
-import { getDomain } from "./components/utils";
+} from "../components/styled-components";
+import type { EmailContext } from "../types";
 
 export interface NewPollEmailProps {
   title: string;
   name: string;
   adminLink: string;
   participantLink: string;
+  ctx: EmailContext;
 }
 
-const ShareLink = ({
-  title,
-  participantLink,
-  name,
-  children,
-}: React.PropsWithChildren<{
-  name: string;
-  title: string;
-  participantLink: string;
-}>) => {
-  return (
-    <Button
-      href={`mailto:?subject=${encodeURIComponent(
-        `Availability for ${title}`,
-      )}&body=${encodeURIComponent(
-        `Hi all,\nI'm trying to find the best date for ${title}.\nCan you please use the link below to choose your preferred dates:\n${participantLink}\nThank you.\n${name}`,
-      )}`}
-    >
-      {children}
-    </Button>
-  );
-};
-
-const LinkContainer = (props: { href: string }) => {
-  return (
-    <Text
-      style={{
-        borderRadius: "4px",
-        backgroundColor: "white",
-        padding: "12px",
-        border: "1px solid #E2E8F0",
-      }}
-    >
-      <Link href={props.href} style={{ letterSpacing: 1 }}>
-        {props.href}
-      </Link>
-    </Text>
-  );
-};
-
 export const NewPollEmail = ({
-  title = "Untitled Poll",
-  name = "John",
-  adminLink = "https://rallly.co/admin/abcdefg123",
-  participantLink = "https://rallly.co/p/wxyz9876",
+  title,
+  adminLink,
+  participantLink,
+  ctx,
 }: NewPollEmailProps) => {
   return (
     <EmailLayout
-      footNote={
-        <>
-          You are receiving this email because a new poll was created with this
-          email address on <Link href={absoluteUrl()}>{getDomain()}</Link>. If
-          this wasn&apos;t you, please ignore this email.
-        </>
-      }
-      recipientName={name}
-      preview="Share your participant link to start collecting responses."
+      ctx={ctx}
+      preview={ctx.t("newPoll_preview", {
+        defaultValue:
+          "Share your participant link to start collecting responses.",
+        ns: "emails",
+      })}
     >
+      <Heading>
+        {ctx.t("newPoll_heading", {
+          defaultValue: "New Poll Created",
+          ns: "emails",
+        })}
+      </Heading>
       <Text>
-        Your poll for <strong>{title}</strong> is live! Here are two links you
-        will need to manage your poll.
+        <Trans
+          i18n={ctx.i18n}
+          t={ctx.t}
+          i18nKey="newPoll_content"
+          ns="emails"
+          values={{ title }}
+          components={{
+            b: <strong />,
+          }}
+          defaults="Your meeting poll titled <b>{{title}}</b> is ready! Share it using the link below:"
+        />
       </Text>
-      <Card>
-        <Heading>Admin link</Heading>
-        <SubHeadingText>
-          Use this link to view results and make changes to your poll.
-        </SubHeadingText>
-        <LinkContainer href={adminLink} />
-        <Text>
-          <Button href={adminLink}>Go to admin page</Button>
+      <Card style={{ textAlign: "center" }}>
+        <Text style={{ textAlign: "center" }}>
+          <Link href={participantLink}>{participantLink}</Link>
         </Text>
       </Card>
-      <Card>
-        <Heading>Participant link</Heading>
-        <SubHeadingText>
-          Copy this link and share it with your participants to start collecting
-          responses.
-        </SubHeadingText>
-        <LinkContainer href={participantLink} />
-        <Text>
-          <ShareLink
-            title={title}
-            name={name}
-            participantLink={participantLink}
-          >
-            Share via email
-          </ShareLink>
-        </Text>
-      </Card>
+      <Button href={adminLink}>
+        {ctx.t("newPoll_button", {
+          defaultValue: "Manage Poll",
+          ns: "emails",
+        })}
+      </Button>
     </EmailLayout>
   );
+};
+
+NewPollEmail.getSubject = (props: NewPollEmailProps, ctx: EmailContext) => {
+  return ctx.t("newPoll_subject", {
+    defaultValue: "Let's find a date for {{title}}!",
+    title: props.title,
+    ns: "emails",
+  });
 };
 
 export default NewPollEmail;

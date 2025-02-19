@@ -1,25 +1,33 @@
-import { Listbox } from "@headlessui/react";
-import { ChevronDownIcon, PlusCircleIcon } from "@rallly/icons";
+import { Badge } from "@rallly/ui/badge";
+import { Button } from "@rallly/ui/button";
+import { Card, CardFooter, CardHeader, CardTitle } from "@rallly/ui/card";
+import { Icon } from "@rallly/ui/icon";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@rallly/ui/select";
 import { AnimatePresence, m } from "framer-motion";
+import { MoreHorizontalIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import * as React from "react";
-import { FormProvider, useForm } from "react-hook-form";
 import smoothscroll from "smoothscroll-polyfill";
 
+import { TimesShownIn } from "@/components/clock";
+import { OptimizedAvatarImage } from "@/components/optimized-avatar-image";
+import { Participant, ParticipantName } from "@/components/participant";
 import { ParticipantDropdown } from "@/components/participant-dropdown";
-import { usePoll } from "@/components/poll-context";
-import { You } from "@/components/you";
+import { useVotingForm } from "@/components/poll/voting-form";
+import { YouAvatar } from "@/components/poll/you-avatar";
+import { useOptions, usePoll } from "@/components/poll-context";
+import { Trans } from "@/components/trans";
+import { usePermissions } from "@/contexts/permissions";
 
-import { Button } from "../button";
-import { styleMenuItem } from "../menu-styles";
-import { useNewParticipantModal } from "../new-participant-modal";
-import { useParticipants } from "../participants-provider";
-import TimeZonePicker from "../time-zone-picker";
-import { isUnclaimed, useUser } from "../user-provider";
+import { useVisibleParticipants } from "../participants-provider";
+import { useUser } from "../user-provider";
 import GroupedOptions from "./mobile-poll/grouped-options";
-import { normalizeVotes, useUpdateParticipantMutation } from "./mutations";
-import { ParticipantForm } from "./types";
-import UserAvatar from "./user-avatar";
 
 if (typeof window !== "undefined") {
   smoothscroll.polyfill();
@@ -28,240 +36,184 @@ if (typeof window !== "undefined") {
 const MobilePoll: React.FunctionComponent = () => {
   const pollContext = usePoll();
 
-  const {
-    poll,
-    admin,
-    targetTimeZone,
-    setTargetTimeZone,
-    getParticipantById,
-    optionIds,
-    getVote,
-    userAlreadyVoted,
-  } = pollContext;
+  const { poll, getParticipantById } = pollContext;
 
-  const { participants } = useParticipants();
-  const { timeZone } = poll;
+  const { options } = useOptions();
 
   const session = useUser();
 
-  const form = useForm<ParticipantForm>({
-    defaultValues: {
-      votes: [],
-    },
-  });
+  const votingForm = useVotingForm();
+  const { formState } = votingForm;
 
-  const { reset, handleSubmit, formState } = form;
-  const [selectedParticipantId, setSelectedParticipantId] = React.useState<
-    string | undefined
-  >(() => {
-    if (!admin) {
-      const participant = participants.find((p) => session.ownsObject(p));
-      return participant?.id;
-    }
-  });
+  const selectedParticipantId = votingForm.watch("participantId") ?? "";
 
+  const visibleParticipants = useVisibleParticipants();
   const selectedParticipant = selectedParticipantId
     ? getParticipantById(selectedParticipantId)
     : undefined;
 
-  const [isEditing, setIsEditing] = React.useState(
-    !userAlreadyVoted && !poll.closed && !admin,
-  );
+  const { canEditParticipant, canAddNewParticipant } = usePermissions();
 
-  const formRef = React.useRef<HTMLFormElement>(null);
+  const { t } = useTranslation();
 
-  const { t } = useTranslation("app");
-
-  const updateParticipant = useUpdateParticipantMutation();
-
-  const showNewParticipantModal = useNewParticipantModal();
+  const isEditing = votingForm.watch("mode") !== "view";
 
   return (
-    <FormProvider {...form}>
-      <form
-        ref={formRef}
-        onSubmit={handleSubmit(async ({ votes }) => {
-          if (selectedParticipant) {
-            await updateParticipant.mutateAsync({
-              pollId: poll.id,
-              participantId: selectedParticipant.id,
-              votes: normalizeVotes(optionIds, votes),
-            });
-            setIsEditing(false);
-          } else {
-            showNewParticipantModal({
-              votes: normalizeVotes(optionIds, votes),
-              onSubmit: async ({ id }) => {
-                setSelectedParticipantId(id);
-                setIsEditing(false);
-              },
-            });
-          }
-        })}
-      >
-        <div className="flex flex-col space-y-2 border-b bg-gray-50 p-2">
-          <div className="flex space-x-2">
-            {selectedParticipantId || !isEditing ? (
-              <Listbox
-                value={selectedParticipantId}
-                onChange={(participantId) => {
-                  setSelectedParticipantId(participantId);
-                }}
-                disabled={isEditing}
-              >
-                <div className="menu min-w-0 grow">
-                  <Listbox.Button
-                    as={Button}
-                    className="w-full"
-                    data-testid="participant-selector"
-                  >
-                    <div className="min-w-0 grow text-left">
-                      {selectedParticipant ? (
-                        <div className="flex items-center space-x-2">
-                          <UserAvatar
-                            name={selectedParticipant.name}
-                            showName={true}
-                            isYou={session.ownsObject(selectedParticipant)}
-                          />
-                        </div>
-                      ) : (
-                        t("participantCount", { count: participants.length })
-                      )}
-                    </div>
-                    <ChevronDownIcon className="h-5 shrink-0" />
-                  </Listbox.Button>
-                  <Listbox.Options
-                    as={m.div}
-                    transition={{
-                      duration: 0.1,
-                    }}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="menu-items max-h-72 w-full overflow-auto"
-                  >
-                    <Listbox.Option value={undefined} className={styleMenuItem}>
-                      {t("participantCount", { count: participants.length })}
-                    </Listbox.Option>
-                    {participants.map((participant) => (
-                      <Listbox.Option
-                        key={participant.id}
-                        value={participant.id}
-                        className={styleMenuItem}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <UserAvatar
-                            name={participant.name}
-                            showName={true}
-                            isYou={session.ownsObject(participant)}
-                          />
-                        </div>
-                      </Listbox.Option>
-                    ))}
-                  </Listbox.Options>
-                </div>
-              </Listbox>
-            ) : (
-              <div className="flex grow items-center px-1">
-                <You />
-              </div>
-            )}
-            {isEditing ? (
-              <Button
-                onClick={() => {
-                  setIsEditing(false);
-                  reset();
-                }}
-              >
-                {t("cancel")}
-              </Button>
-            ) : selectedParticipant ? (
-              <ParticipantDropdown
-                disabled={
-                  poll.closed ||
-                  // if user is  participant (not admin)
-                  (!admin &&
-                    // and does not own this participant
-                    !session.ownsObject(selectedParticipant) &&
-                    // and the participant has been claimed by a different user
-                    !isUnclaimed(selectedParticipant))
-                  // not allowed to edit
-                }
-                participant={selectedParticipant}
-                onEdit={() => {
-                  setIsEditing(true);
-                  reset({
-                    votes: optionIds.map((optionId) => ({
-                      optionId,
-                      type: getVote(selectedParticipant.id, optionId),
-                    })),
-                  });
-                }}
-              />
-            ) : (
-              <Button
-                type="primary"
-                icon={<PlusCircleIcon />}
-                disabled={poll.closed}
-                onClick={() => {
-                  reset({
-                    votes: [],
-                  });
-                  setIsEditing(true);
-                }}
-              >
-                {t("new")}
-              </Button>
-            )}
-          </div>
-          {timeZone ? (
-            <TimeZonePicker
-              value={targetTimeZone}
-              onChange={setTargetTimeZone}
-            />
-          ) : null}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-x-2.5">
+          <CardTitle>
+            <Trans i18nKey="participants" />
+          </CardTitle>
+          <Badge>{visibleParticipants.length}</Badge>
         </div>
-        <GroupedOptions
-          selectedParticipantId={selectedParticipantId}
-          options={pollContext.options}
-          editable={isEditing}
-          group={(option) => {
-            if (option.type === "timeSlot") {
-              return `${option.dow} ${option.day} ${option.month}`;
-            }
-            return `${option.month} ${option.year}`;
-          }}
-        />
-        <AnimatePresence>
-          {isEditing ? (
-            <m.div
-              variants={{
-                hidden: { opacity: 0, y: -20, height: 0 },
-                visible: { opacity: 1, y: 0, height: "auto" },
+      </CardHeader>
+
+      <div className="sticky top-0 z-20 flex flex-col space-y-2 border-b bg-gray-50 p-2">
+        <div className="flex gap-x-2.5">
+          {selectedParticipantId || !isEditing ? (
+            <Select
+              value={selectedParticipantId}
+              onValueChange={(participantId) => {
+                votingForm.setValue("participantId", participantId);
               }}
-              initial="hidden"
-              animate="visible"
-              exit={{
-                opacity: 0,
-                y: -10,
-                height: 0,
-                transition: { duration: 0.2 },
+              disabled={isEditing}
+            >
+              <SelectTrigger asChild className="w-full">
+                <Button>
+                  <SelectValue />
+                </Button>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">
+                  <div className="flex items-center gap-x-2.5">
+                    <div className="flex w-5 justify-center">
+                      <Icon>
+                        <UsersIcon />
+                      </Icon>
+                    </div>
+                    <span className="font-medium">
+                      {t("allParticipants", {
+                        defaultValue: "All Participants",
+                      })}
+                    </span>
+                  </div>
+                </SelectItem>
+                {visibleParticipants.map((participant) => (
+                  <SelectItem key={participant.id} value={participant.id}>
+                    <Participant>
+                      <OptimizedAvatarImage name={participant.name} size="xs" />
+                      <ParticipantName>{participant.name}</ParticipantName>
+                      {session.ownsObject(participant) && (
+                        <Badge>
+                          <Trans i18nKey="you" />
+                        </Badge>
+                      )}
+                    </Participant>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex grow items-center px-1">
+              <Participant>
+                <YouAvatar />
+                <ParticipantName>{t("you")}</ParticipantName>
+              </Participant>
+            </div>
+          )}
+          {isEditing ? (
+            <Button
+              onClick={() => {
+                if (votingForm.watch("mode") === "new") {
+                  votingForm.cancel();
+                } else {
+                  votingForm.setValue("mode", "view");
+                }
               }}
             >
-              <div className="space-y-3 border-t bg-gray-50 p-3">
-                <Button
-                  className="w-full"
-                  htmlType="submit"
-                  type="primary"
-                  loading={formState.isSubmitting}
-                >
-                  {selectedParticipantId ? t("save") : t("continue")}
-                </Button>
-              </div>
-            </m.div>
+              {t("cancel")}
+            </Button>
+          ) : selectedParticipant ? (
+            <ParticipantDropdown
+              align="end"
+              disabled={!canEditParticipant(selectedParticipant.id)}
+              participant={{
+                name: selectedParticipant.name,
+                userId: selectedParticipant.userId ?? undefined,
+                email: selectedParticipant.email ?? undefined,
+                id: selectedParticipant.id,
+              }}
+              onEdit={() => {
+                votingForm.setEditingParticipantId(selectedParticipant.id);
+              }}
+            >
+              <Button>
+                <Icon>
+                  <MoreHorizontalIcon />
+                </Icon>
+              </Button>
+            </ParticipantDropdown>
+          ) : canAddNewParticipant ? (
+            <Button
+              onClick={() => {
+                votingForm.newParticipant();
+              }}
+            >
+              <Icon>
+                <PlusIcon />
+              </Icon>
+            </Button>
           ) : null}
-        </AnimatePresence>
-      </form>
-    </FormProvider>
+        </div>
+      </div>
+      {poll.options[0]?.duration !== 0 && poll.timeZone ? (
+        <CardHeader>
+          <TimesShownIn />
+        </CardHeader>
+      ) : null}
+      <GroupedOptions
+        selectedParticipantId={selectedParticipantId}
+        options={options}
+        editable={isEditing}
+        group={(option) => {
+          if (option.type === "timeSlot") {
+            return `${option.dow} ${option.day} ${option.month}`;
+          }
+          return `${option.month} ${option.year}`;
+        }}
+      />
+      <AnimatePresence>
+        {isEditing ? (
+          <m.div
+            variants={{
+              hidden: { opacity: 0, y: -20, height: 0 },
+              visible: { opacity: 1, y: 0, height: "auto" },
+            }}
+            initial="hidden"
+            animate="visible"
+            exit={{
+              opacity: 0,
+              y: -10,
+              height: 0,
+              transition: { duration: 0.2 },
+            }}
+          >
+            <CardFooter>
+              <Button
+                form="voting-form"
+                className="w-full"
+                type="submit"
+                variant="primary"
+                loading={formState.isSubmitting}
+              >
+                {selectedParticipantId ? t("save") : t("continue")}
+              </Button>
+            </CardFooter>
+          </m.div>
+        ) : null}
+      </AnimatePresence>
+    </Card>
   );
 };
 
