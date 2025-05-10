@@ -11,13 +11,14 @@ import { useDialog } from "@rallly/ui/dialog";
 import { FormField } from "@rallly/ui/form";
 import { Switch } from "@rallly/ui/switch";
 import { AtSignIcon, EyeIcon, MessageCircleIcon, VoteIcon } from "lucide-react";
-import React from "react";
+import type React from "react";
 import { useFormContext } from "react-hook-form";
 import { Trans } from "react-i18next";
 
 import { PayWallDialog } from "@/components/pay-wall-dialog";
 import { ProBadge } from "@/components/pro-badge";
-import { usePlan } from "@/contexts/plan";
+
+import { useUser } from "../user-provider";
 
 export type PollSettingsFormData = {
   requireParticipantEmail: boolean;
@@ -51,6 +52,7 @@ const SettingTitle = ({
 
 const Setting = ({ children }: React.PropsWithChildren) => {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: Fix this later
     <label
       className={cn(
         "cursor-pointer bg-white hover:bg-gray-50 active:bg-gray-100",
@@ -66,9 +68,9 @@ export const PollSettingsForm = ({ children }: React.PropsWithChildren) => {
   const form = useFormContext<PollSettingsFormData>();
   const posthog = usePostHog();
   const paywallDialog = useDialog();
-  const plan = usePlan();
+  const { user } = useUser();
 
-  const isFree = plan === "free";
+  const isFree = user.tier !== "pro";
 
   return (
     <>

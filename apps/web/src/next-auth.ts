@@ -1,10 +1,9 @@
 import { prisma } from "@rallly/database";
 import { posthog } from "@rallly/posthog/server";
-import { redirect } from "next/navigation";
 import NextAuth from "next-auth";
 import type { Provider } from "next-auth/providers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
-import z from "zod";
 
 import { CustomPrismaAdapter } from "./auth/adapters/prisma";
 import { isEmailBanned, isEmailBlocked } from "./auth/helpers/is-email-blocked";
@@ -16,13 +15,6 @@ import { MicrosoftProvider } from "./auth/providers/microsoft";
 import { OIDCProvider } from "./auth/providers/oidc";
 import { RegistrationTokenProvider } from "./auth/providers/registration-token";
 import { nextAuthConfig } from "./next-auth.config";
-
-const sessionUpdateSchema = z.object({
-  locale: z.string().nullish(),
-  timeFormat: z.enum(["hours12", "hours24"]).nullish(),
-  timeZone: z.string().nullish(),
-  weekStart: z.number().nullish(),
-});
 
 const {
   auth: originalAuth,
@@ -66,6 +58,22 @@ const {
     },
   },
   events: {
+    createUser({ user }) {
+      if (user.id) {
+        posthog?.capture({
+          distinctId: user.id,
+          event: "register",
+          properties: {
+            $set: {
+              name: user.name,
+              email: user.email,
+              timeZone: user.timeZone ?? undefined,
+              locale: user.locale ?? undefined,
+            },
+          },
+        });
+      }
+    },
     signIn({ user, account }) {
       if (user.id) {
         posthog?.capture({
@@ -76,8 +84,8 @@ const {
             $set: {
               name: user.name,
               email: user.email,
-              timeZone: user.timeZone,
-              locale: user.locale,
+              timeZone: user.timeZone ?? undefined,
+              locale: user.locale ?? undefined,
             },
           },
         });
@@ -146,45 +154,26 @@ const {
 
       return true;
     },
-    async jwt({ token, session }) {
-      if (session) {
-        const parsed = sessionUpdateSchema.safeParse(session);
-        if (parsed.success) {
-          Object.entries(parsed.data).forEach(([key, value]) => {
-            token[key] = value;
-          });
-        } else {
-          console.error(parsed.error);
-        }
-      } else {
-        const userId = token.sub;
-        const isGuest = userId?.startsWith("guest-");
+    async jwt({ token }) {
+      const userId = token.sub;
+      const isGuest = userId?.startsWith("guest-");
 
-        if (userId && !isGuest) {
-          const user = await prisma.user.findUnique({
-            where: {
-              id: userId,
-            },
-            select: {
-              name: true,
-              email: true,
-              locale: true,
-              timeFormat: true,
-              timeZone: true,
-              weekStart: true,
-              image: true,
-            },
-          });
+      if (userId && !isGuest) {
+        const user = await prisma.user.findUnique({
+          where: {
+            id: userId,
+          },
+          select: {
+            name: true,
+            email: true,
+            image: true,
+          },
+        });
 
-          if (user) {
-            token.name = user.name;
-            token.email = user.email;
-            token.picture = user.image;
-            token.locale = user.locale;
-            token.timeFormat = user.timeFormat;
-            token.timeZone = user.timeZone;
-            token.weekStart = user.weekStart;
-          }
+        if (user) {
+          token.name = user.name;
+          token.email = user.email;
+          token.picture = user.image;
         }
       }
 
@@ -218,7 +207,7 @@ const requireUser = async () => {
  */
 export const getUserId = async () => {
   const session = await auth();
-  return session?.user?.email ? session.user.id : null;
+  return session?.user?.email ? session.user.id : undefined;
 };
 
 export const getLoggedIn = async () => {
