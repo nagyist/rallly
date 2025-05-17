@@ -26,7 +26,6 @@ import {
   MoreHorizontalIcon,
   TrashIcon,
 } from "lucide-react";
-import { signIn, useSession } from "next-auth/react";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 
@@ -57,8 +56,7 @@ function NewCommentForm({
 }) {
   const { t } = useTranslation();
   const poll = usePoll();
-  const { user } = useUser();
-  const session = useSession();
+  const { user, createGuestIfNeeded } = useUser();
   const { participants } = useParticipants();
 
   const authorName = React.useMemo(() => {
@@ -98,11 +96,7 @@ function NewCommentForm({
     <form
       className="w-full space-y-2.5"
       onSubmit={handleSubmit(async ({ authorName, content }) => {
-        if (session.status !== "authenticated") {
-          await signIn("guest", {
-            redirect: false,
-          });
-        }
+        await createGuestIfNeeded();
         await addComment.mutateAsync({ authorName, content, pollId });
         reset({ authorName, content: "" });
         onSubmit?.();
@@ -229,10 +223,8 @@ function DiscussionInner() {
                         </div>
                         {canDelete && (
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild={true}>
-                              <button className="hover:text-foreground text-gray-500">
-                                <MoreHorizontalIcon className="size-4" />
-                              </button>
+                            <DropdownMenuTrigger className="hover:text-foreground text-gray-500">
+                              <MoreHorizontalIcon className="size-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
                               <DropdownMenuItem
@@ -274,6 +266,7 @@ function DiscussionInner() {
             />
           ) : (
             <button
+              type="button"
               className="border-input text-muted-foreground flex w-full rounded border bg-transparent px-2 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
               onClick={() => setIsWriting(true)}
             >

@@ -1,7 +1,6 @@
 "use client";
 import { usePostHog } from "@rallly/posthog/client";
 import { Button } from "@rallly/ui/button";
-import Link from "next/link";
 import React from "react";
 
 import { Trans } from "@/components/trans";
@@ -11,8 +10,8 @@ export const UpgradeButton = ({
   annual,
   large,
   className,
-}: React.PropsWithChildren<{ 
-  annual?: boolean; 
+}: React.PropsWithChildren<{
+  annual?: boolean;
   large?: boolean;
   className?: string;
 }>) => {
@@ -48,15 +47,5 @@ export const UpgradeButton = ({
         {children || <Trans i18nKey="upgradeToPro" defaults="Upgrade to Pro" />}
       </Button>
     </form>
-  );
-};
-
-export const UpgradeLink = ({}) => {
-  return (
-    <Button variant="primary" asChild>
-      <Link href="/settings/billing">
-        <Trans i18nKey="upgrade" defaults="Upgrade" />
-      </Link>
-    </Button>
   );
 };
