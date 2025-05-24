@@ -1,6 +1,6 @@
 "use server";
 
-import { getUser } from "@/data/get-user";
+import { requireUser } from "@/auth/queries";
 import { type Feedback, feedbackSchema } from "@/features/feedback/schema";
 import { getEmailClient } from "@/utils/emails";
 
@@ -15,12 +15,11 @@ export const submitFeedback = async (formData: Feedback) => {
     };
   }
 
-  const user = await getUser();
+  const user = await requireUser();
   try {
     const { content } = feedbackSchema.parse(formData);
     getEmailClient().sendEmail({
       to: "feedback@rallly.co",
-      replyTo: user.email,
       subject: "Feedback",
       text: `User: ${user.name} (${user.email})\n\n${content}`,
     });

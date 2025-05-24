@@ -15,7 +15,7 @@ import {
   UserIcon,
   UsersIcon,
 } from "lucide-react";
-import React from "react";
+import type React from "react";
 
 const pageIconVariants = cva("inline-flex items-center justify-center", {
   variants: {
@@ -30,9 +30,9 @@ const pageIconVariants = cva("inline-flex items-center justify-center", {
     },
     size: {
       sm: "size-6 [&_svg]:size-3 rounded-md",
-      md: "size-7 [&_svg]:size-4 rounded-lg",
-      lg: "size-9 [&_svg]:size-5 rounded-xl",
-      xl: "size-10 [&_svg]:size-5 rounded-xl",
+      md: "size-8 [&_svg]:size-5 rounded-lg",
+      lg: "size-9 [&_svg]:size-5 rounded-lg",
+      xl: "size-10 [&_svg]:size-5 rounded-lg",
     },
   },
   defaultVariants: {
@@ -95,9 +95,9 @@ export function TeamsPageIcon() {
     </PageIcon>
   );
 }
-export function HomePageIcon() {
+export function HomePageIcon(props: PageIconVariantProps) {
   return (
-    <PageIcon color="darkGray" size="md">
+    <PageIcon color="darkGray" size="md" {...props}>
       <HomeIcon />
     </PageIcon>
   );
@@ -118,33 +118,33 @@ export function PollPageIcon(props: PageIconVariantProps) {
   );
 }
 
-export function EventPageIcon() {
+export function EventPageIcon(props: PageIconVariantProps) {
   return (
-    <PageIcon color="rose" size="md">
+    <PageIcon color="rose" size="md" {...props}>
       <CalendarIcon />
     </PageIcon>
   );
 }
 
-export function ProfilePageIcon() {
+export function ProfilePageIcon(props: PageIconVariantProps) {
   return (
-    <PageIcon color="gray" size="md">
+    <PageIcon color="gray" size="md" {...props}>
       <UserIcon />
     </PageIcon>
   );
 }
 
-export function PreferencesPageIcon() {
+export function PreferencesPageIcon(props: PageIconVariantProps) {
   return (
-    <PageIcon color="gray" size="md">
+    <PageIcon color="gray" size="md" {...props}>
       <Settings2Icon />
     </PageIcon>
   );
 }
 
-export function BillingPageIcon() {
+export function BillingPageIcon(props: PageIconVariantProps) {
   return (
-    <PageIcon color="gray" size="md">
+    <PageIcon color="gray" size="md" {...props}>
       <CreditCardIcon />
     </PageIcon>
   );

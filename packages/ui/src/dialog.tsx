@@ -131,7 +131,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
+      "text-base font-semibold leading-none tracking-tight",
       className,
     )}
     {...props}
@@ -153,7 +153,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 function useDialog() {
   const [isOpen, setIsOpen] = React.useState(false);
-  const triggerRef = React.useRef<HTMLButtonElement>();
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   function trigger() {
     setIsOpen(true);

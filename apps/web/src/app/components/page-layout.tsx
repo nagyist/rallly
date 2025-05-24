@@ -22,7 +22,7 @@ export function PageTitle({
   return (
     <h1
       className={cn(
-        "text-foreground flex gap-3 truncate text-xl font-bold tracking-tight",
+        "text-foreground flex items-center gap-3 truncate text-xl font-bold leading-none tracking-tight",
         className,
       )}
     >
@@ -84,9 +84,7 @@ export function PageSkeleton() {
           <Skeleton className="size-8" />
           <Skeleton className="h-8 w-32" />
         </PageTitle>
-        <PageDescription>
-          <Skeleton className="h-4 w-64" />
-        </PageDescription>
+        <Skeleton className="mt-4 h-4 w-64" />
       </PageHeader>
       <PageContent>
         <div className="space-y-8">

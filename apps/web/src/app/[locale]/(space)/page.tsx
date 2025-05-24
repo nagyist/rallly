@@ -1,8 +1,9 @@
-import { Tile, TileGrid, TileTitle } from "@rallly/ui/tile";
+import { Tile, TileDescription, TileGrid, TileTitle } from "@rallly/ui/tile";
+import Link from "next/link";
 
-import type { Params } from "@/app/[locale]/types";
 import {
   BillingPageIcon,
+  CreatePageIcon,
   EventPageIcon,
   HomePageIcon,
   PollPageIcon,
@@ -16,11 +17,50 @@ import {
   PageHeader,
   PageTitle,
 } from "@/app/components/page-layout";
+import { requireUser } from "@/auth/queries";
 import { Trans } from "@/components/trans";
+import { IfCloudHosted } from "@/contexts/environment";
 import { getTranslation } from "@/i18n/server";
+import { prisma } from "@rallly/database";
+import { FeedbackAlert } from "./feedback-alert";
 
-export default async function Page({ params }: { params: Params }) {
-  await getTranslation(params.locale);
+async function loadData() {
+  const user = await requireUser();
+
+  if (!user) {
+    return {
+      livePollCount: 0,
+      upcomingEventCount: 0,
+    };
+  }
+
+  const now = new Date();
+  const [livePollCount, upcomingEventCount] = await Promise.all([
+    prisma.poll.count({
+      where: {
+        userId: user.id,
+        status: "live",
+        deleted: false,
+      },
+    }),
+    prisma.event.count({
+      where: {
+        userId: user.id,
+        start: {
+          gte: now,
+        },
+      },
+    }),
+  ]);
+
+  return {
+    livePollCount,
+    upcomingEventCount,
+  };
+}
+
+export default async function Page() {
+  const { livePollCount, upcomingEventCount } = await loadData();
 
   return (
     <PageContainer>
@@ -37,73 +77,94 @@ export default async function Page({ params }: { params: Params }) {
         </PageDescription>
       </PageHeader>
       <PageContent className="space-y-8">
-        {/* <div className="space-y-4">
+        <IfCloudHosted>
+          <FeedbackAlert />
+        </IfCloudHosted>
+        <div className="space-y-4">
           <h2 className="text-muted-foreground text-sm">
             <Trans i18nKey="homeActionsTitle" defaults="Actions" />
           </h2>
           <TileGrid>
-            <Tile href="/new">
-              <CreatePageIcon />
-              <TileTitle>
-                <Trans i18nKey="create" defaults="Create" />
-              </TileTitle>
+            <Tile asChild>
+              <Link href="/new">
+                <CreatePageIcon />
+                <TileTitle>
+                  <Trans i18nKey="create" defaults="Create" />
+                </TileTitle>
+              </Link>
             </Tile>
           </TileGrid>
-        </div> */}
-
+        </div>
         <div className="space-y-4">
           <h2 className="text-muted-foreground text-sm">
             <Trans i18nKey="homeNavTitle" defaults="Navigation" />
           </h2>
           <TileGrid>
-            <Tile href="/polls">
-              <PollPageIcon />
-              <TileTitle>
-                <Trans i18nKey="polls" defaults="Polls" />
-              </TileTitle>
+            <Tile asChild>
+              <Link href="/polls">
+                <PollPageIcon />
+                <TileTitle>
+                  <Trans i18nKey="polls" defaults="Polls" />
+                </TileTitle>
+                <TileDescription>
+                  <Trans
+                    i18nKey="livePollCount"
+                    defaults="{count} live"
+                    values={{ count: livePollCount }}
+                  />
+                </TileDescription>
+              </Link>
             </Tile>
 
-            <Tile href="/events">
-              <EventPageIcon />
-              <TileTitle>
-                <Trans i18nKey="events" defaults="Events" />
-              </TileTitle>
+            <Tile asChild>
+              <Link href="/events">
+                <EventPageIcon />
+                <TileTitle>
+                  <Trans i18nKey="events" defaults="Events" />
+                </TileTitle>
+                <TileDescription>
+                  <Trans
+                    i18nKey="upcomingEventCount"
+                    defaults="{count} upcoming"
+                    values={{ count: upcomingEventCount }}
+                  />
+                </TileDescription>
+              </Link>
             </Tile>
-
-            {/* <Tile href="/members">
-              <MembersPageIcon />
-              <TileTitle>
-                <Trans i18nKey="members" defaults="Members" />
-              </TileTitle>
-            </Tile> */}
           </TileGrid>
         </div>
-
         <div className="space-y-4">
           <h2 className="text-muted-foreground text-sm">
             <Trans i18nKey="account" defaults="Account" />
           </h2>
           <TileGrid>
-            <Tile href="/settings/profile">
-              <ProfilePageIcon />
-              <TileTitle>
-                <Trans i18nKey="profile" defaults="Profile" />
-              </TileTitle>
+            <Tile asChild>
+              <Link href="/settings/profile">
+                <ProfilePageIcon />
+                <TileTitle>
+                  <Trans i18nKey="profile" defaults="Profile" />
+                </TileTitle>
+              </Link>
             </Tile>
 
-            <Tile href="/settings/preferences">
-              <PreferencesPageIcon />
-              <TileTitle>
-                <Trans i18nKey="preferences" defaults="Preferences" />
-              </TileTitle>
+            <Tile asChild>
+              <Link href="/settings/preferences">
+                <PreferencesPageIcon />
+                <TileTitle>
+                  <Trans i18nKey="preferences" defaults="Preferences" />
+                </TileTitle>
+              </Link>
             </Tile>
-
-            <Tile href="/settings/billing">
-              <BillingPageIcon />
-              <TileTitle>
-                <Trans i18nKey="billing" defaults="Billing" />
-              </TileTitle>
-            </Tile>
+            <IfCloudHosted>
+              <Tile asChild>
+                <Link href="/settings/billing">
+                  <BillingPageIcon />
+                  <TileTitle>
+                    <Trans i18nKey="billing" defaults="Billing" />
+                  </TileTitle>
+                </Link>
+              </Tile>
+            </IfCloudHosted>
           </TileGrid>
         </div>
       </PageContent>

@@ -1,7 +1,8 @@
+"use client";
+
 import { usePostHog } from "@rallly/posthog/client";
 import { Button } from "@rallly/ui/button";
 import { useToast } from "@rallly/ui/hooks/use-toast";
-import * as Sentry from "@sentry/nextjs";
 import React, { useState } from "react";
 import { z } from "zod";
 
@@ -39,12 +40,6 @@ function ChangeAvatarButton({ onSuccess }: { onSuccess: () => void }) {
           defaultValue: "Please upload a JPG or PNG file.",
         }),
       });
-      Sentry.captureMessage("Invalid file type", {
-        level: "info",
-        extra: {
-          fileType: file.type,
-        },
-      });
       return;
     }
 
@@ -58,12 +53,6 @@ function ChangeAvatarButton({ onSuccess }: { onSuccess: () => void }) {
         description: t("fileTooLargeDescription", {
           defaultValue: "Please upload a file smaller than 2MB.",
         }),
-      });
-      Sentry.captureMessage("File too large", {
-        level: "info",
-        extra: {
-          fileSize: file.size,
-        },
       });
       return;
     }
@@ -91,7 +80,7 @@ function ChangeAvatarButton({ onSuccess }: { onSuccess: () => void }) {
       });
 
       onSuccess();
-    } catch (error) {
+    } catch {
       toast({
         title: t("errorUploadPicture", {
           defaultValue: "Failed to upload",
@@ -101,7 +90,6 @@ function ChangeAvatarButton({ onSuccess }: { onSuccess: () => void }) {
             "There was an issue uploading your picture. Please try again later.",
         }),
       });
-      Sentry.captureException(error);
     } finally {
       setIsUploading(false);
     }
@@ -183,15 +171,16 @@ function Upload() {
   );
 }
 
-export function ProfilePicture() {
-  const { user } = useUser();
+export function ProfilePicture({
+  name,
+  image,
+}: {
+  name: string;
+  image?: string;
+}) {
   return (
     <div className="flex items-center gap-x-4">
-      <OptimizedAvatarImage
-        src={user.image ?? undefined}
-        name={user.name}
-        size="lg"
-      />
+      <OptimizedAvatarImage src={image} name={name} size="lg" />
       <IfCloudHosted>
         <Upload />
       </IfCloudHosted>

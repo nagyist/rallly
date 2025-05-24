@@ -5,7 +5,6 @@ import { Button } from "@rallly/ui/button";
 import { Icon } from "@rallly/ui/icon";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import React from "react";
 
 import { Trans } from "@/components/trans";
 
@@ -79,7 +78,7 @@ export function Pagination({
         <div className="text-sm">
           <Trans
             i18nKey="paginationPage"
-            defaults="Page {currentPage} of {totalPages}"
+            defaults="Page {currentPage, number} of {totalPages, number}"
             values={{
               currentPage,
               totalPages,

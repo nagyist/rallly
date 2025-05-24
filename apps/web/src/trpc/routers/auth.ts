@@ -97,6 +97,8 @@ export const auth = router({
         token: z.string(),
         code: z.string(),
         timeZone: z.string().optional(),
+        weekStart: z.number().min(0).max(6).optional(),
+        timeFormat: z.enum(["hours12", "hours24"]).optional(),
         locale: z.string().optional(),
       }),
     )
@@ -118,11 +120,13 @@ export const auth = router({
           name,
           email,
           timeZone: input.timeZone,
+          timeFormat: input.timeFormat,
+          weekStart: input.weekStart,
           locale: input.locale,
         },
       });
 
-      if (ctx.user && ctx.user.isGuest) {
+      if (ctx.user?.isGuest) {
         try {
           await mergeGuestsIntoUser(user.id, [ctx.user.id]);
         } catch (err) {
@@ -139,6 +143,9 @@ export const auth = router({
             name: user.name,
             timeZone: input.timeZone,
             locale: input.locale,
+            tier: "hobby",
+            weekStart: input.weekStart,
+            timeFormat: input.timeFormat,
           },
         },
       });
